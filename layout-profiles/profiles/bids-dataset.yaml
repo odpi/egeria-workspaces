@@ -1,15 +1,16 @@
-# bids-dataset 0.1.0: conformance of a BIDS-shaped dataset to a DECLARED SUBSET of the Brain Imaging Data Structure (BIDS) specification v1.11.2
+# bids-dataset 0.1.1: conformance of a BIDS-shaped dataset to a DECLARED SUBSET of the Brain Imaging Data Structure (BIDS) specification v1.11.2
 # (https://bids-specification.readthedocs.io/en/v1.11.2/, CC-BY-4.0; see SOURCES.md). Phase 2, notebook 05.
 #
 # The subset: the datatypes anat, func, dwi and fmap; the entities sub, ses, task, acq, dir, run and echo, in the specification's order; the
 # suffixes listed per datatype below (NIfTI data as .nii.gz or .nii); the top-level files dataset_description.json, README, participants.tsv and CHANGES; and the fields
 # BIDSVersion, Name and License of dataset_description.json (the only content read). Everything else BIDS allows is declared `not_checked`
 # (counted, never judged): derivatives/, sourcedata/, code/, stimuli/, phenotype/, other datatypes, scans and sessions files, top-level sidecars
-# (inheritance). Stricter than BIDS on purpose, and stated per rule: README, participants.tsv and CHANGES are REQUIRED here (BIDS 1.11.2: README
-# and participants.tsv RECOMMENDED, CHANGES OPTIONAL), every subject must have every session seen in the dataset and every datatype folder seen
+# and subject- and session-level sidecars and tables (inheritance). Stricter than BIDS on purpose, and stated per rule: README, participants.tsv and
+# CHANGES are REQUIRED here (BIDS 1.11.2: README and participants.tsv RECOMMENDED, CHANGES OPTIONAL; participants.tsv and CHANGES are scored as
+# study consistency, not as the standard), every subject must have every session seen in the dataset and every datatype folder seen
 # in that session (study-consistency checks, which BIDS itself does not require). The scanned root is the dataset root.
 profile_id: bids-dataset
-version: 0.1.0
+version: 0.1.1
 status: proposed
 applies_to: any
 extends: [generic-relevance]
@@ -63,7 +64,7 @@ name_grammar:
     suffixes:
       by_token: datatype
       values:
-        anat: [T1w, T2w, FLAIR, PDw]
+        anat: [T1w, T2w, FLAIR, PDw, FLASH]
         func: [bold, sbref, events]
         dwi: [dwi, sbref]
         fmap: [magnitude, magnitude1, magnitude2, phasediff, phase1, phase2, fieldmap, epi]
@@ -74,7 +75,7 @@ name_grammar:
         dwi: [.nii.gz, .nii, .json, .bval, .bvec]
     basis: convention
     confidence: high
-    evidence: "BIDS 1.11.2 file names: sub-<label>[_ses-<label>][_task-<label>][_acq-<label>][_dir-<label>][_run-<index>][_echo-<index>]_<suffix><extension>, entities in this order, sub and ses equal to the folders', task required for functional files; NIfTI data as .nii.gz or .nii; this profile allows only the suffixes listed per datatype"
+    evidence: "BIDS 1.11.2 file names: sub-<label>[_ses-<label>][_task-<label>][_acq-<label>][_dir-<label>][_run-<index>][_echo-<index>]_<suffix><extension>, entities in this order, sub and ses equal to the folders', task required for functional files; NIfTI data as .nii.gz or .nii; this profile allows only the suffixes listed per datatype (FLASH is deprecated in BIDS 1.11.2 but still valid)"
     tuned_on: ["generated (bids_gen seeds 1-3)", "BIDS spec; noticed on ds000117 (reported-only sample)"]
 required:
   - id: RQ-dataset-description
@@ -89,14 +90,16 @@ required:
     evidence: "this profile requires a README at the dataset root (BIDS 1.11.2 RECOMMENDS one)"
   - id: RQ-participants
     path: participants.tsv
+    category: study-consistency
     basis: convention
     confidence: high
-    evidence: "this profile requires participants.tsv at the dataset root (BIDS 1.11.2 RECOMMENDS it)"
+    evidence: "this profile requires participants.tsv at the dataset root (BIDS 1.11.2 RECOMMENDS it), so it is scored as study consistency, not as the standard"
   - id: RQ-changes
     path: CHANGES
+    category: study-consistency
     basis: convention
     confidence: high
-    evidence: "this profile requires CHANGES at the dataset root (BIDS 1.11.2 makes it OPTIONAL)"
+    evidence: "this profile requires CHANGES at the dataset root (BIDS 1.11.2 makes it OPTIONAL), so it is scored as study consistency, not as the standard"
   - id: RQ-session
     category: study-consistency
     of: PG-session
@@ -133,17 +136,17 @@ allowed_only:
   - id: AO-subject
     under: [PG-subject]
     dirs: [PG-session, PG-datatype]
-    not_checked: ["*_sessions.tsv", "*_sessions.json", "*_scans.tsv", "*_scans.json", "*.json", beh, eeg, ieeg, meg, micr, motion, mrs, nirs, perf, pet]
+    not_checked: ["*_sessions.tsv", "*_sessions.json", "*_scans.tsv", "*_scans.json", "*.json", "*.tsv", beh, eeg, ieeg, meg, micr, motion, mrs, nirs, perf, pet]
     basis: convention
     confidence: high
-    evidence: "BIDS 1.11.2 subject folder: sessions or datatype folders; the sessions and scans files, subject-level sidecars and the datatypes outside this profile's subset are not checked"
+    evidence: "BIDS 1.11.2 subject folder: sessions or datatype folders; the sessions and scans files, subject-level sidecars and tables (*.json, *.tsv: inheritance) and the datatypes outside this profile's subset are not checked"
   - id: AO-session
     under: [PG-session]
     dirs: [PG-datatype-ses]
-    not_checked: ["*_scans.tsv", "*_scans.json", "*.json", beh, eeg, ieeg, meg, micr, motion, mrs, nirs, perf, pet]
+    not_checked: ["*_scans.tsv", "*_scans.json", "*.json", "*.tsv", beh, eeg, ieeg, meg, micr, motion, mrs, nirs, perf, pet]
     basis: convention
     confidence: high
-    evidence: "BIDS 1.11.2 session folder: datatype folders; the scans file, session-level sidecars and the datatypes outside this profile's subset are not checked"
+    evidence: "BIDS 1.11.2 session folder: datatype folders; the scans file, session-level sidecars and tables (*.json, *.tsv such as channels.tsv: inheritance) and the datatypes outside this profile's subset are not checked"
   - id: AO-datatype
     under: [PG-datatype, PG-datatype-ses]
     name_grammar: [NG-bids]

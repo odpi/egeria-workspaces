@@ -640,7 +640,7 @@ A folder that no `allowed_only` item covers is not checked.
 **`classes.json` `conformance`**: checked items (entries judged plus required paths expected), conformant items, findings by kind and status, the
 score (conformant / checked) and the not-checked files with their roots and reasons (`not-checked`, `below-finding`, `no-closed-set`).
 
-## Phase 2, notebook 05, B2: the `bids-dataset` profile 0.1.0 and the `dataset_description.json` content checks
+## Phase 2, notebook 05, B2 and B6: the `bids-dataset` profile 0.1.1 and the `dataset_description.json` content checks
 
 `profiles/bids-dataset.yaml` (extends `generic-relevance`, so `.git` and the like stay hidden and are not judged) declares a SUBSET of BIDS v1.11.2
 (SOURCES.md): the datatypes `anat`, `func`, `dwi` and `fmap`; the entities `sub`, `ses`, `task`, `acq`, `dir`, `run` and `echo` in the specification's
@@ -653,7 +653,8 @@ The scanned root is the dataset root.
 
 **Study consistency apart from the standard.** A `required` item may carry `category: study-consistency` (default `standard`). `RQ-session`,
 `RQ-datatype` and `RQ-datatype-ses` (every subject has every session, and every datatype folder, seen in the dataset) are study-consistency
-checks: a regular study's protocol, which BIDS itself does not require. When a profile has such items, the `conformance` block of `classes.json`
+checks: a regular study's protocol, which BIDS itself does not require. So are (0.1.1) `RQ-participants` and `RQ-changes`, files this
+profile requires that BIDS only recommends or allows. When a profile has such items, the `conformance` block of `classes.json`
 has `by_category` (checked items, findings and score per category; entries and content fields count as `standard`) and each conformance finding
 carries its `category`, so a report can say "BIDS 69%, study consistency 94%".
 
@@ -676,11 +677,14 @@ Results: clean trees (seeds 1-3 and more, with and without sessions) have 0 find
 all of them together, is found exactly: the conformance findings equal `truth.jsonl` by path, kind, status and rule, with nothing else.
 
 **ds000117** (bids-examples @ 5e00d47b, names and sizes only plus its `dataset_description.json`; reported, NOT scored). On `samples/ds000117/paths.tsv`
-with `--blobs-dir samples/ds000117`: 2,448 files; 1,776 not checked (derivatives, stimuli, sub-emptyroom, meg, beh, top-level sidecars, scans files);
-882 checked items, 245 findings, score 0.722 (standard 0.695 on 786 items, study consistency 0.948 on 96). The content checks pass (BIDSVersion 1.8.0,
-License CC0). 224 `suffix` findings are the FLASH scans (a suffix outside the subset; BIDS marks it deprecated) and 16 `unexpected` are MEG
-`channels.tsv` files at session level (inheritance and MEG are outside the subset): both accepted as known limits. The 5 `missing` are `dwi` folders
-absent for some subjects: honest study-consistency findings. Before the read-back fixes the figures were 423 findings, score 0.589 (47 `.nii` field
+with `--blobs-dir samples/ds000117`, under 0.1.1: 2,448 files; 1,792 not checked (derivatives, stimuli, sub-emptyroom, meg, beh, top-level,
+subject-level and session-level sidecars and tables, scans files); 866 checked items, 5 findings, score 0.994 (standard 1.0 on 768 items, 0 findings;
+study consistency 0.949 on 98, 5 findings). The content checks pass (BIDSVersion 1.8.0, License CC0). The 5 `missing` are `dwi` folders absent for
+some subjects: honest study-consistency findings. **B6 (0.1.1)** closed three gaps the Architect found on 0.1.0, which had 882 checked items, 245
+findings, score 0.722 (standard 0.695 on 786 items, 240 findings; study consistency 0.948 on 96, 5 findings): `RQ-participants` and `RQ-changes`
+(BIDS RECOMMENDS participants.tsv and makes CHANGES OPTIONAL) are now `study-consistency`; `FLASH` (deprecated in BIDS 1.11.2 but still valid) is an
+`anat` suffix (was 224 `suffix` findings); and `*.tsv` is not checked at subject and session level, as `*.json` was (inheritance; was 16 `unexpected` MEG
+`channels.tsv` files at session level). Before the read-back fixes the figures were 423 findings, score 0.589 (47 `.nii` field
 maps, and 130 + 1 + its file from `sub-emptyroom`). The Architect's offline bids-validator run compares them after B4.
 
 **Known limits** (what the subset leaves out or judges more strictly than BIDS):
@@ -689,11 +693,11 @@ maps, and 130 + 1 + its file from `sub-emptyroom`). The Architect's offline bids
 - Sidecar content, `participants.tsv` and every data file are never read; only `BIDSVersion`, `Name` and `License` of the root `dataset_description.json` are read.
 - Other datatypes (meg, eeg, ieeg, beh, pet, perf, micr, motion, mrs, nirs) are not checked; physio and stim recordings are not checked.
 - Only the entities sub, ses, task, acq, dir, run and echo; any other BIDS entity (ce, rec, mod, part, ...) is reported as `unknown-entity`.
-- Only the suffixes listed per datatype; others, such as FLASH or T2starw, are reported as `suffix`.
+- Only the suffixes listed per datatype; others, such as T2starw, are reported as `suffix`.
 - Any listed entity may appear with any suffix; per-suffix entity rules beyond `task` for bold, sbref and events are not checked.
-- README, participants.tsv and CHANGES are required here; BIDS 1.11.2 recommends the first two and makes CHANGES optional. README.md, README.rst and README.txt are allowed but do not satisfy the README requirement.
+- README, participants.tsv and CHANGES are required here; BIDS 1.11.2 recommends the first two and makes CHANGES optional. participants.tsv and CHANGES are scored as study consistency (0.1.1). README.md, README.rst and README.txt are allowed but do not satisfy the README requirement.
 - RQ-session, RQ-datatype and RQ-datatype-ses expect a regular study (every subject has every session and datatype folder seen); they are study-consistency checks, scored apart, and a study whose subjects legitimately differ will have findings there.
-- Session-level files of datatypes outside the subset (for example MEG `channels.tsv` directly in `ses-meg/`) are reported `unexpected`.
+- Session-level files of datatypes outside the subset other than sidecars and tables (`*.json`, `*.tsv`), such as `*_physio.tsv.gz`, are reported `unexpected`.
 - The License value is not checked against a list in v0.
 - `.bidsignore` is not read.
 

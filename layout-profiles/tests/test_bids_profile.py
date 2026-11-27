@@ -1,4 +1,4 @@
-"""Phase 2 notebook 05, B2: the bids-dataset profile 0.1.0 on generated trees (samples/bids_gen.py), the dataset_description.json content checks
+"""Phase 2 notebook 05, B2 and B6: the bids-dataset profile 0.1.1 on generated trees (samples/bids_gen.py), the dataset_description.json content checks
 (NOTE-PHASE2 §2 row and §10), and the real ds000117 file list (names only; reported, not scored). Synthetic files only, except the ds000117
 names and its dataset_description.json, which are copied as SOURCES.md records."""
 import copy
@@ -47,7 +47,7 @@ def truth_key(t):
 # ---- the profile --------------------------------------------------------------------------------------------------------------------------------
 def test_the_profile_names_its_spec_version_and_tuning():
     text = (PROFILES / "bids-dataset.yaml").read_text()
-    assert "v1.11.2" in text and PROF.version == "0.1.0" and PROF.status == "proposed"
+    assert "v1.11.2" in text and PROF.version == "0.1.1" and PROF.status == "proposed"
     for item in (*PROF.path_grammar, *PROF.name_grammar):
         assert item.tuned_on[0] == "generated (bids_gen seeds 1-3)"
         assert set(item.tuned_on[1:]) <= {"BIDS spec; noticed on ds000117 (reported-only sample)"}      # read-back FIX-A/B: spec facts, noticed there
@@ -349,4 +349,78 @@ def test_study_consistency_is_scored_apart_from_the_standard(tmp_path):
     assert cats["standard"]["findings"] == 1 and cats["study-consistency"]["findings"] == 1
     assert cats["standard"]["checked"] + cats["study-consistency"]["checked"] == c["conformance"]["checked"]["total"]
     assert {x["rule_id"]: x["category"] for x in f} == {"RQ-session": "study-consistency", "AO-datatype": "standard"}
-    assert {r.id for r in PROF.required if r.category == "study-consistency"} == {"RQ-session", "RQ-datatype", "RQ-datatype-ses"}
+    assert {r.id for r in PROF.required if r.category == "study-consistency"} == {"RQ-session", "RQ-datatype", "RQ-datatype-ses", "RQ-participants",
+                                                                                  "RQ-changes"}      # B6 G1
+
+
+# ---- B6 (Architect's ds000117 read): three gaps of 0.1.0 closed in 0.1.1 ---------------------------------------------------------------------------
+@pytest.mark.parametrize("name,rule", [("CHANGES", "RQ-changes"), ("participants.tsv", "RQ-participants")])
+def test_g1_an_optional_or_recommended_top_level_file_is_study_consistency(tmp_path, name, rule):
+    spec = g.parse_spec({"mutations": [{"class": "missing-top-level-file", "file": name}]})
+    files, truth = g.generate(1, 3, 2, spec)
+    c, f = survey(tmp_path, files)
+    assert [key(x) for x in f] == [truth_key(t) for t in truth] == [(name, "structure", "missing", rule)]
+    assert f[0]["category"] == "study-consistency"
+    cats = c["conformance"]["by_category"]
+    assert cats["standard"]["findings"] == 0 and cats["study-consistency"]["findings"] == 1
+    req = {r.id: r.category for r in PROF.required}
+    assert req["RQ-dataset-description"] == "standard" and req[rule] == "study-consistency"
+
+
+def test_g2_flash_is_an_anat_suffix_and_stays_case_checked():
+    ng = PROF.name_grammar[0]
+    anat, ses = {"sub": "01", "datatype": "anat"}, {"sub": "01", "ses": "mri", "datatype": "anat"}
+    assert ng.check("sub-01_ses-mri_run-1_echo-1_FLASH.nii.gz", ses) == "" and ng.check("sub-01_run-2_echo-7_FLASH.json", anat) == ""
+    assert ng.check("sub-01_flash.nii.gz", anat) != ""                                            # the suffix list is still case-sensitive
+    assert ng.check("sub-01_FLASH.nii.gz", {"sub": "01", "datatype": "func"}) != ""                # anat only
+    assert ng.check("sub-01_T2starw.nii.gz", anat) == "suffix"                                     # other suffixes outside the subset still reported
+
+
+def first_session(files):
+    return sorted(p.split("/")[1] for p in files if p.startswith("sub-01/ses-"))[0]
+
+
+def test_g2_flash_files_in_a_generated_tree_are_conformant(tmp_path):
+    files, _ = g.generate(1, 3, 2)
+    ses = first_session(files)
+    for s in ("01", "02", "03"):
+        for e in (1, 2):
+            files[f"sub-{s}/{ses}/anat/sub-{s}_{ses}_run-1_echo-{e}_FLASH.nii.gz"] = b""
+            files[f"sub-{s}/{ses}/anat/sub-{s}_{ses}_run-1_echo-{e}_FLASH.json"] = b"{}"
+    c, f = survey(tmp_path, files)
+    assert f == [] and c["conformance"]["score"] == 1.0
+
+
+@pytest.mark.parametrize("root", ["AO-session", "AO-subject"])
+def test_g3_inheritable_tsv_sidecars_are_not_checked(tmp_path, root):
+    files, _ = g.generate(1, 3, 2 if root == "AO-session" else 0)
+    if root == "AO-session":
+        ses = first_session(files)
+        rel = f"sub-01/{ses}/sub-01_{ses}_task-rest_channels.tsv"
+    else:
+        rel = "sub-01/sub-01_task-rest_channels.tsv"
+    files[rel] = b""
+    c, f = survey(tmp_path, files)
+    assert f == []
+    roots = {r["path"]: (r["reason"], r.get("rule_id")) for r in c["conformance"]["not_checked"]["roots"]}
+    assert roots[rel] == ("not-checked", root)
+
+
+def test_g3_other_unexpected_session_level_files_are_still_reported(tmp_path):
+    files, _ = g.generate(1, 3, 2)
+    ses = first_session(files)
+    files[f"sub-01/{ses}/notes.txt"] = b""
+    files[f"sub-01/{ses}/sub-01_{ses}_physio.tsv.gz"] = b""
+    _, f = survey(tmp_path, files)
+    assert sorted(key(x) for x in f) == [(f"sub-01/{ses}/notes.txt", "structure", "unexpected", "AO-session"),
+                                         (f"sub-01/{ses}/sub-01_{ses}_physio.tsv.gz", "structure", "unexpected", "AO-session")]
+
+
+def test_b6_ds000117_has_no_standard_finding_and_five_study_consistency_ones(tmp_path):
+    c = Recognizer(PROF, blob_source=mf.FileSource(str(DS))).run(DS / "paths.tsv", tmp_path / "o")
+    k = c["conformance"]
+    cats = k["by_category"]
+    assert cats["standard"]["findings"] == 0 and cats["study-consistency"]["findings"] == 5
+    found = [json.loads(x) for x in (tmp_path / "o" / "findings.jsonl").read_text().splitlines() if '"grain":"conformance"' in x]
+    assert {(f["rule_id"], f["kind"], f["status"], f["category"]) for f in found} == {("RQ-datatype-ses", "structure", "missing", "study-consistency")}
+    assert all(f["path"].endswith("/dwi") for f in found)
