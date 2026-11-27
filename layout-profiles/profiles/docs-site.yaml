@@ -1,0 +1,150 @@
+# docs-site: documentation sites and documentation folders. (0.3.0: the content folder is CLAIMED but its files are classified one by one by the file-role layer below, so assets, theme and
+# snippets inside it are not all just `docs`.) 0.1.0 worked from names alone; 0.2.0 adds `manifest_reading` (below): given a blob source it reads
+# mkdocs.yml for the nav (each top-level entry is a doc-section component, a part of its site), docs_dir and site_dir. Without a source it is the 0.1.0 profile.
+# A directory holding mkdocs.yml (or mkdocs.yaml) is a docs site. Beside it, the DEFAULT content folder `docs` and the DEFAULT build output `site`
+# are claimed (mkdocs' defaults; a site that sets other names in the file is not understood without reading it). A top-level documentation folder
+# with no mkdocs.yml is NOT a site: it is the documentation component of a repository. The mkdocs.yml rule is first, so a directory is claimed once.
+# Extends generic-relevance, so venv, node_modules and build output are hidden and counted. Tuned on the mkdocs tutorial sample and the trellis
+# docs folder only (see tuned_on); egeria-docs has not been seen.
+profile_id: docs-site
+version: 0.4.0
+status: proposed
+applies_to: docs-site
+extends: [generic-relevance]
+roles: [component, docs, generated, archive, static-assets, theme, include-fragments, config, other]
+relevance:
+  primary: [component]
+  supporting: [docs, static-assets, theme, include-fragments, config, other]
+  hidden: [archive, generated]
+rules:
+  - id: R-docs-site-mkdocs
+    match: {has_file: [mkdocs.yml, mkdocs.yaml]}
+    assign: {role: component, kind: docs-site}
+    grain: component
+    basis: manifest
+    confidence: high
+    evidence: "a directory that holds mkdocs.yml (or mkdocs.yaml) is the root of an MkDocs documentation site"
+    tuned_on: [mkdocs-sample]
+  - id: R-docs-site-docusaurus
+    match: {has_file: [docusaurus.config.js, docusaurus.config.ts, docusaurus.config.mjs, docusaurus.config.cjs]}
+    assign: {role: component, kind: docs-site}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a directory that holds a docusaurus.config file is the root of a Docusaurus documentation site; recognized by the file NAME only, the file is never read"
+    tuned_on: ["note 568fc678 (no repository looked at)"]
+  - id: R-docs-site-content
+    match: {name: docs, parent_has_file: [mkdocs.yml, mkdocs.yaml, docusaurus.config.js, docusaurus.config.ts, docusaurus.config.mjs, docusaurus.config.cjs]}
+    assign: {role: docs, kind: docs-content}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "docs beside mkdocs.yml (or a docusaurus.config file) is the generator's default content folder; a site that sets docs_dir elsewhere is not recognized from names"
+    tuned_on: [mkdocs-sample]
+  - id: R-docs-site-output
+    match: {name: site, parent_has_file: [mkdocs.yml, mkdocs.yaml]}
+    assign: {role: generated, kind: docs-build-output}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "site beside mkdocs.yml is MkDocs' default site_dir, the built HTML; a site that sets site_dir elsewhere is not recognized from names"
+    tuned_on: [mkdocs-sample]
+  - id: R-docs-archive-folder
+    match: {path_glob: ["docs/archive/**", "doc/archive/**"]}
+    assign: {role: archive, kind: archived-documentation}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "an archive folder directly under the top-level docs folder holds retired documents, not the live documentation"
+    tuned_on: [trellis]
+  - id: R-docs-folder-top-level
+    match: {path_glob: [docs, doc, documentation]}
+    assign: {role: component, kind: documentation}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a top-level docs, doc or documentation directory with no mkdocs.yml is the repository's documentation, not a documentation site"
+    tuned_on: [trellis]
+file_roles:
+  # N4 (Phase 1c): the FILE-ROLE layer of a documentation site, the docs counterpart of the code layer. It is consulted last (it cannot change a component or un-hide a file) and
+  # only for files INSIDE a component (a site, or a documentation folder). First match wins; `other` is classified and reported, never silently dropped.
+  # The built `site/` stays generated (hidden) through R-docs-site-output above.
+  - id: F-docs-fragments
+    match: {path_segment: [snippets, includes], component_scope: within}
+    assign: {role: include-fragments, kind: include-fragment}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "files in a snippets or includes folder are fragments that pages include, not pages of their own"
+    tuned_on: ["note-derived, no repository fitted"]
+  - id: F-docs-theme
+    match: {path_segment: [overrides, theme], component_scope: within}
+    assign: {role: theme, kind: site-theme}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "files in an overrides or theme folder customise the look of the site"
+    tuned_on: ["note-derived, no repository fitted"]
+  - id: F-docs-static
+    match: {path_segment: [assets, img, images, css, js, static], component_scope: within}
+    assign: {role: static-assets, kind: static-asset}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "files in an assets, img, images, css, js or static folder are the site's images, styles and scripts"
+    tuned_on: ["note-derived, no repository fitted"]
+  - id: F-docs-page
+    match: {extension: [.md, .mdx, .rst, .ipynb], component_scope: within}
+    assign: {role: docs, kind: documentation-page}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "a Markdown, MDX, reStructuredText or notebook file inside a documentation site or folder is a page"
+    tuned_on: ["note-derived, no repository fitted"]
+  - id: F-docs-config
+    match: {extension: [.yml, .yaml, .toml, .ini, .cfg], component_scope: within}
+    assign: {role: config, kind: site-configuration}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a YAML, TOML, INI or CFG file inside a documentation site or folder configures the site or its tools"
+    tuned_on: ["note-derived, no repository fitted"]
+  - id: F-docs-other
+    match: {path_glob: "**"}
+    assign: {role: other, kind: not-recognized}
+    grain: dir
+    basis: convention
+    confidence: low
+    evidence: "no documentation file-role pattern claims this file; it is classified as other and reported separately from unclassified"
+    tuned_on: ["note-derived, no repository fitted"]
+manifest_reading:
+  readers: [mkdocs]
+  docs_content_rule: R-docs-site-content      # where mkdocs.yml names another docs_dir, that folder is claimed as the default `docs` is
+  fallback_site_rule: R-docs-site-docusaurus  # a site recognized by a generator config FILE NAME gets the fallback sections (its config is never read)
+  site_output_rule: R-docs-site-output        # where mkdocs.yml names another site_dir, that folder is hidden as the default `site` is
+  section_rule:
+    id: M-docs-section
+    role: component
+    kind: doc-section
+    basis: manifest-content
+    confidence: high
+    evidence: "a top-level entry of the nav of mkdocs.yml is a documentation section; its identity is the one top-level folder of docs_dir that all its pages share, otherwise its first page file"
+    tuned_on: [mkdocs-sample]
+  translation_rule:
+    id: M-docs-translation
+    role: component
+    kind: doc-translation
+    basis: manifest-content
+    confidence: high
+    evidence: "this site's mkdocs.yml INHERITs the mkdocs.yml of another site: it is a translation (a language folder) of that site, not a site of its own, and its nav entries are not sections"
+    tuned_on: ["fastapi (M8, spent)"]
+  fallback_section_rule:
+    id: M-docs-section-folder
+    role: component
+    kind: doc-section
+    basis: convention
+    confidence: low
+    evidence: "mkdocs.yml has no nav, so each top-level folder of docs_dir that holds pages (not assets, js, css, img, images, overrides, snippets or includes) is taken as a section"
+    tuned_on: [mkdocs-sample]
+path_grammar: []
+name_grammar: []

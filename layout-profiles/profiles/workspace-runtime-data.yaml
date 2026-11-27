@@ -1,0 +1,24 @@
+# workspace-runtime-data: for a WORKSPACE of repositories only (composed into egeria-workspace, never into generic-relevance). Everything under a runtime-volumes folder
+# is data that the running services wrote, at any depth below a workspace repository: runtime output, hidden. It is composed LAST, so every rule that claimed a
+# file before (installs, logs, events, the volume-logs rule of generic-relevance) keeps it and only files nobody claimed move. Dan, 2026-11-26. There is no
+# name-only `logs` rule: a folder named logs elsewhere stays shown.
+profile_id: workspace-runtime-data
+version: 0.1.0
+status: proposed
+applies_to: workspace-of-repos
+roles: [runtime-output]
+relevance:
+  primary: []
+  supporting: []
+  hidden: [runtime-output]
+rules:
+  - id: R-run-volume-data
+    match: {path_glob: ["runtime-volumes/**", "**/runtime-volumes/**"]}
+    assign: {role: runtime-output, kind: runtime-volume-data}
+    grain: subtree
+    basis: convention
+    confidence: high
+    evidence: "runtime-volumes holds the bind-mounted data of the running services (databases, logs, certificates, state), not the repository's content"
+    tuned_on: ["egeria-v6 third draw (c67c74a8)"]
+path_grammar: []
+name_grammar: []
