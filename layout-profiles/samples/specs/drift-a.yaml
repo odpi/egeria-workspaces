@@ -1,0 +1,18 @@
+# A builder-written mutation spec for the drift tests and the notebook (B3, B4): one of each structure and naming class and two content classes.
+# Use with --subjects 6 --sessions 2 (three subject-level mutations, and one subject stays untouched).
+mutations:
+  - class: missing-top-level-file
+    file: CHANGES
+  - class: missing-modality-folder
+  - class: unexpected-top-level-folder
+  - class: unexpected-file-in-modality-folder
+  - class: entity-order
+  - class: unknown-entity-key
+  - class: illegal-label-character
+  - class: wrong-case
+    variant: file
+  - class: wrong-extension
+  - class: session-inconsistency
+  - class: stray-name
+  - class: bidsversion-invalid
+  - class: license-empty

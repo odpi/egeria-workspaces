@@ -697,6 +697,30 @@ maps, and 130 + 1 + its file from `sub-emptyroom`). The Architect's offline bids
 - The License value is not checked against a list in v0.
 - `.bidsignore` is not read.
 
+## Phase 2, notebook 05, B3: the conformance report and drift (`recognizer/conformance.py`, `recognizer/drift.py`)
+
+```
+python -m recognizer.conformance OUTDIR              # writes OUTDIR/conformance.json and a "Conformance" section of OUTDIR/report.md
+python -m recognizer.drift OLD_OUTDIR NEW_OUTDIR     # writes NEW_OUTDIR/drift.json (or --out) and a "Drift" section of NEW_OUTDIR/report.md
+```
+Both read only the outputs of a survey (`findings.jsonl`, `classes.json`), never the tree. Each replaces its own marked section of `report.md`, so
+running them again changes no byte.
+
+**`conformance.json`**: the profile, the score (conformant checked items / checked items), the checked items (entries, required paths, content
+fields), the findings by kind and by kind and status, the not-checked files and roots, what content was read, and the conformance findings
+(id, path, kind, status, rule, reason). The headline is `97% conformant; 12 findings` (the percentage is floored, so a tree with a finding never
+shows 100%). It refuses a survey whose profile declares no conformance.
+
+**`drift.json`**: the CONFORMANCE findings of the two surveys compared by `finding_id`: `new` (in NEW only), `resolved` (in OLD only) and `unchanged`
+(in both; an unchanged id whose status or reason changed, such as a field that went from `invalid-value` to `missing-field`, is marked `changed` with
+the old status), with counts. A missing file keeps its id, so it stays `unchanged` until it is put back. The two surveys must use the same profile id
+and major version (otherwise the ids are not comparable and drift refuses). Headline: `3 new since last survey; 0 resolved; 0 unchanged`.
+
+Results (tests, seeds 1-3, the builder-written specs `samples/specs/drift-a.yaml` (13 deviations) and `drift-b.yaml` (3)): two surveys of the same
+tree have 0 new and 0 resolved and byte-identical outputs; clean to mutated gives `new` = exactly the truth set; mutated to fixed back gives
+`resolved` = the same set, with the same ids. Where the survey has `by_category`, `conformance.json` carries it and the report section gives the
+score per category.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
