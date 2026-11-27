@@ -25,7 +25,7 @@ Nothing here is copied from a repository: profiles are written from conventions,
 - Phase 2 notebook 05 (B2), the specification: `profiles/bids-dataset.yaml` 0.1.0 (0.1.1 since B6) restates facts (entity names and order, datatype folders, suffixes, the
   dataset_description.json fields) from the Brain Imaging Data Structure (BIDS) specification v1.11.2, https://bids-specification.readthedocs.io/en/v1.11.2/,
   by the BIDS contributors, licensed CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/). No text of the specification is copied; the version, URL and
-  licence are to be verified by the Architect before the PR.
+  licence were verified by the Architect on 2026-11-27 (URL live; repository licence CC-BY-4.0; release v1.11.2 published 2026-09-29).
 - Phase 2 notebook 05 (B2), the dataset: ds000117 ("Multisubject, multimodal face processing", Wakeman, DG and Henson, RN, as listed in its
   dataset_description.json) from bids-standard/bids-examples @ 5e00d47b6f1db106dda1b776d5243eb41b4cb95b. Licence CC0, as stated in its
   dataset_description.json (the repository has no repo-level licence). Copied: the file list (names and sizes of the 2,448 blobs under `ds000117/`, from
