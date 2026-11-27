@@ -145,12 +145,13 @@ class Recognizer:
         for r in self.dir_rules:
             if r.no_source:
                 self.nosource_names |= r.names
-            for cp in r.child_dirs | ({r.tp_not_child} if r.test_project else set()):
+            for cp in r.child_dirs:
                 self.child_first.setdefault(cp.split("/")[0], set()).add(cp)
         self._private_dirs: set = set()               # I1: directories whose package.json was read and says "private": true
         # I1-G (test_project): per rule id, the directories that hold a file or a folder whose name is not on the rule's other_than list
         self.tp_rules = [r for r in self.dir_rules if r.test_project]
         self._tp_other: dict = {r.id: set() for r in self.tp_rules}
+        self._tp_main: dict = {r.id: set() for r in self.tp_rules}   # I1b: directories with a folder below their `not_child_dir` parent (src) whose name matches
         self.component_dirs: set = set()             # directories a component rule claims (filled by index_directories); '' is the root
         self.scope_dirs: set = set()                 # component_dirs and the directories a file_scope rule claims: where component_scope file rules apply
         # hidden subtree rules that depend on the path alone (a rule that also tests a file name cannot say a DIRECTORY is hidden)
@@ -226,8 +227,10 @@ class Recognizer:
             if not d:
                 return False
             if not any(a and self.claims.get(a) is r for a in anc):                          # not nested below a project this rule claimed: the three tests
-                if not (set(re.split(r"[-_]", name.lower())) & r.tp_words) or r.tp_not_child in self._child_rel.get(d, ()) or d not in self._tp_other[r.id]:
+                if not (set(re.split(r"[-_]", name.lower())) & r.tp_words) or d in self._tp_main[r.id] or d not in self._tp_other[r.id]:
                     return False
+        if r.name_words and not (set(re.split(r"[-_]", name.lower())) & r.name_words):
+            return False
         if r.content_min and not (r.content_files & (self._content_at.get(d, set()) | self._content_child.get(d, set()))
                                   or self._content_count.get(r.content_exts, {}).get(d, 0) >= r.content_min):
             return False
@@ -326,10 +329,12 @@ class Recognizer:
             if self.tp_rules:
                 psegs = path.split("/")
                 for r in self.tp_rules:
-                    other = self._tp_other[r.id]
+                    other, main = self._tp_other[r.id], self._tp_main[r.id]
                     for i in range(len(psegs)):
                         if psegs[i] not in r.tp_other_than:                       # a file (the last segment) or a folder directly in "/".join(psegs[:i])
                             other.add("/".join(psegs[:i]))
+                        if i + 1 < len(psegs) - 1 and psegs[i] == r.tp_nc_parent and any(rx.search(psegs[i + 1]) for rx in r.tp_nc_res):
+                            main.add("/".join(psegs[:i]))                         # <d>/src/<main or ...Main>/ is a FOLDER (something lies below it)
             if mr is not None and name in mf.ALLOWED_FILES:
                 candidates_m.append((path, size))
                 if name == ".gitmodules":

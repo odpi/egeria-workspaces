@@ -28,9 +28,9 @@ BASES = ("manifest", "manifest-content", "convention", "judgement")
 CONFIDENCES = ("high", "medium", "low")
 MATCH_KEYS = ("path_glob", "path_segment", "name", "name_regex", "extension", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry",
               "component_scope", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex", "child_segment_regex", "groups_projects", "group_segment_regex", "min_content", "parent_not_role", "only_files",
-              "manifest_private", "not_path_segment", "test_project")
+              "manifest_private", "not_path_segment", "test_project", "name_word")
 DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex", "child_segment_regex", "groups_projects", "group_segment_regex", "min_content", "parent_not_role", "only_files",
-                 "manifest_private", "not_path_segment", "test_project")   # evaluated against a directory, not a file
+                 "manifest_private", "not_path_segment", "test_project", "name_word")   # evaluated against a directory, not a file
 COMPONENT_SCOPES = ("within", "root")                  # file rules only: under some component / directly in a component's directory
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
@@ -130,7 +130,9 @@ class Rule:
     manifest_private: bool = False               # directory rules (I1): the directory's package.json was READ and its top-level "private" is exactly true; never the root
     not_segments: frozenset = frozenset()        # directory rules (I1): NO whole segment of the directory's path (its own name included) is one of these (lower-case, case-insensitive)
     tp_words: frozenset = frozenset()            # directory rules (I1-G) test_project's `name_words` (lower-case): a word of the directory's NAME, split at - and _, is one of these
-    tp_not_child: str = ""                       # test_project's `not_child_dir`: the directory has NO sub-directory at this relative path (src/main)
+    tp_nc_parent: str = ""                       # test_project's `not_child_dir` (I1b): the directory has NO folder below its child folder of this name (src) ...
+    tp_nc_res: tuple = ()                        # ... whose name matches one of these regexes (main, or a name ending in a capitalised Main: commonMain, jvmMain)
+    name_words: frozenset = frozenset()          # directory rules (I1b) name_word (lower-case): a word of the directory's OWN name, split at - and _, is one of these
     tp_other_than: frozenset = frozenset()       # test_project's `other_than`: the directory holds at least one file or folder whose name is NOT one of these
     test_project: bool = False                   # test_project is set: all three hold, OR a proper ancestor directory is claimed by this same rule (a project nested below one)
     file_scope: bool = False                     # H1: the directory this (grain dir) rule claims is a file-role scope, like a component directory, though it is not a component
@@ -142,7 +144,7 @@ class Rule:
         """A rule is evaluated against DIRECTORIES when it tests a directory's files (has_file / parent_has_file / has_entry /
         ancestor_has_entry) or claims a component: its path_glob / path_segment / name / name_regex then apply to the directory itself."""
         return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries or self.no_source or self.parent_tokens or self.child_dirs or self.orphaned or self.segment_res or self.child_seg_res or self.group_min or self.content_min or self.parent_not_roles or self.only_files
-                    or self.manifest_private or self.not_segments or self.test_project) \
+                    or self.manifest_private or self.not_segments or self.test_project or self.name_words) \
             or self.grain == "component" or self.named_dir
 
     @property
@@ -350,18 +352,28 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
     not_segs = _as_list(match.get("not_path_segment", []))
     if "not_path_segment" in match and (not not_segs or not all(isinstance(x, str) and x and "/" not in x for x in not_segs)):
         raise ProfileError(f"{where}: match.not_path_segment needs folder names (non-empty strings without '/')")
-    tp_words, tp_not_child, tp_other = frozenset(), "", frozenset()
+    tp_words, tp_nc_parent, tp_nc_res, tp_other = frozenset(), "", [], frozenset()
     if "test_project" in match:
         tp = match["test_project"]
         if not isinstance(tp, dict) or set(tp) != {"name_words", "not_child_dir", "other_than"} or not isinstance(tp["name_words"], list) \
                 or not isinstance(tp["other_than"], list) or not tp["name_words"] or not tp["other_than"] \
                 or not all(isinstance(x, str) and x and "/" not in x and "-" not in x and "_" not in x for x in tp["name_words"]) \
                 or not all(isinstance(x, str) and x and "/" not in x for x in tp["other_than"]) \
-                or not isinstance(tp["not_child_dir"], str) or not tp["not_child_dir"] or tp["not_child_dir"].startswith("/") or tp["not_child_dir"].endswith("/") \
-                or any(x in ("", "..", ".") for x in tp["not_child_dir"].split("/")):
-            raise ProfileError(f"{where}: match.test_project needs a mapping with name_words (words without '-', '_' or '/'), not_child_dir (a relative folder path) "
-                               "and other_than (entry names without '/'), the lists not empty")
-        tp_words, tp_not_child, tp_other = frozenset(x.lower() for x in tp["name_words"]), tp["not_child_dir"], frozenset(tp["other_than"])
+                or not isinstance(tp["not_child_dir"], dict) or set(tp["not_child_dir"]) != {"parent", "regex"} \
+                or not isinstance(tp["not_child_dir"]["parent"], str) or not tp["not_child_dir"]["parent"] or "/" in tp["not_child_dir"]["parent"] \
+                or tp["not_child_dir"]["parent"] in (".", "..") or not _as_list(tp["not_child_dir"]["regex"]) \
+                or not all(isinstance(x, str) and x for x in _as_list(tp["not_child_dir"]["regex"])):
+            raise ProfileError(f"{where}: match.test_project needs a mapping with name_words (words without '-', '_' or '/'), not_child_dir ({{parent: a folder name, "
+                               "regex: [regexes]}) and other_than (entry names without '/'), the lists not empty")
+        for rx in _as_list(tp["not_child_dir"]["regex"]):
+            try:
+                tp_nc_res.append(re.compile(rx))
+            except re.error as exc:
+                raise ProfileError(f"{where}: bad test_project not_child_dir regex {rx!r}: {exc}") from exc
+        tp_words, tp_nc_parent, tp_other = frozenset(x.lower() for x in tp["name_words"]), tp["not_child_dir"]["parent"], frozenset(tp["other_than"])
+    name_words = _as_list(match.get("name_word", []))
+    if "name_word" in match and (not name_words or not all(isinstance(x, str) and x and not set(x) & set("-_/") for x in name_words)):
+        raise ProfileError(f"{where}: match.name_word needs words (non-empty strings without '-', '_' or '/')")
     file_scope = raw.get("file_scope", False)
     if not isinstance(file_scope, bool) or (file_scope and (not dir_rule or raw["grain"] != "dir" or role == "component")):
         raise ProfileError(f"{where}: file_scope is a boolean, and true only on a directory rule of grain dir whose role is not component")
@@ -389,7 +401,8 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         content_files=content_files, content_min=content_min, content_exts=content_exts, file_scope=file_scope,
         parent_not_roles=frozenset(parent_not), only_dirs=only_dirs, only_res=tuple(only_res), only_files="only_files" in match,
         manifest_private="manifest_private" in match, not_segments=frozenset(x.lower() for x in not_segs),
-        tp_words=tp_words, tp_not_child=tp_not_child, tp_other_than=tp_other, test_project="test_project" in match,
+        tp_words=tp_words, tp_nc_parent=tp_nc_parent, tp_nc_res=tuple(tp_nc_res), tp_other_than=tp_other, test_project="test_project" in match,
+        name_words=frozenset(x.lower() for x in name_words),
     )
 
 

@@ -44,27 +44,46 @@ def not_component(r, d, rule_id, role):
 
 
 # ======================================================================== I1 ========================================================================================
-# ---- (1) root workspaces [packages/*, private/*]; private/a private true: not a component, test-support
+# ---- (1) root workspaces [packages/*, private/*]; private/a-test private true: not a component, test-support (I1b: its name has a test word)
 def test_a_private_workspace_package_is_test_support(tmp_path):
-    r = survey(tmp_path, {"package.json": WS_ROOT, "private/a/package.json": PRIV, "private/a/src/x.ts": "x", "packages/b/package.json": PUB})
-    assert not_component(r, "private/a", "R-ts-private-package", "test-support") and r.f["private/a"]["kind"] == "private-package"
-    assert r.rule["private/a/src/x.ts"] == "F-source-folder" or r.rule["private/a/src/x.ts"] == "F-source-ext"
+    r = survey(tmp_path, {"package.json": WS_ROOT, "private/a-test/package.json": PRIV, "private/a-test/src/x.ts": "x", "packages/b/package.json": PUB})
+    assert not_component(r, "private/a-test", "R-ts-private-package", "test-support") and r.f["private/a-test"]["kind"] == "private-package"
+    assert r.rule["private/a-test/src/x.ts"] == "F-source-ext"
+
+
+# ---- I1b: a private package WITHOUT a test word in its own name stays a component (the known limit)
+@pytest.mark.parametrize("d", ["private/a", "private/model-x", "modules/ui-core", "docs-site-x", "frontend", "private/contest", "private/latest-x",
+                               "private/x.test", "helpers/x", "private/attestation"])
+def test_a_private_package_without_a_test_word_in_its_name_stays_a_component(tmp_path, d):
+    r = survey(tmp_path, {"package.json": PUB, f"{d}/package.json": PRIV})
+    assert d in r.allc and r.f[d]["rule_id"] == "R-comp-package-json"
+
+
+@pytest.mark.parametrize("d", ["private/util-test", "private/a_test_b", "pkg/e2e-test", "x/Integration-Testing", "private/a-b-tests-c", "harness_TEST"])
+def test_every_test_word_form_counts(tmp_path, d):
+    r = survey(tmp_path, {"package.json": PUB, f"{d}/package.json": PRIV})
+    assert not_component(r, d, "R-ts-private-package", "test-support")
+
+
+def test_a_test_word_without_private_changes_nothing(tmp_path):
+    r = survey(tmp_path, {"package.json": PUB, "private/util-test/package.json": PUB})
+    assert "private/util-test" in r.allc
 
 
 # ---- (2) packages/b without a private field: still a component
 def test_a_workspace_package_without_private_is_still_a_component(tmp_path):
-    r = survey(tmp_path, {"package.json": WS_ROOT, "private/a/package.json": PRIV, "packages/b/package.json": PUB})
+    r = survey(tmp_path, {"package.json": WS_ROOT, "private/a-test/package.json": PRIV, "packages/b/package.json": PUB})
     assert "packages/b" in r.top and r.f["packages/b"]["role"] == "component"
 
 
 # ---- (3) the exempt folder names: a private application in a monorepo stays a component
-@pytest.mark.parametrize("d", ["apps/web", "services/api", "app/x", "applications/x", "sites/x", "website", "web", "pkgs/web/ui", "Apps/x", "SERVICES/y"])
+@pytest.mark.parametrize("d", ["apps/web-test", "services/api-test", "app/x-test", "applications/x-test", "sites/x-test", "website/x-test", "web/x-testing", "pkgs/web/ui-test", "Apps/x-test", "SERVICES/y-test"])
 def test_a_private_package_under_an_exempt_folder_name_stays_a_component(tmp_path, d):
     r = survey(tmp_path, {"package.json": PUB, f"{d}/package.json": PRIV})
     assert d in r.allc and r.f[d]["role"] == "component"
 
 
-@pytest.mark.parametrize("d", ["webapp/x", "my-apps/x", "frontend", "service/x", "site/x", "tools-web/x"])
+@pytest.mark.parametrize("d", ["webapp/x-test", "my-apps/x-test", "frontend-test", "service/x-test", "site/x-test", "tools-web/x-test"])
 def test_names_outside_the_exempt_list_are_not_exempt(tmp_path, d):
     r = survey(tmp_path, {"package.json": PUB, f"{d}/package.json": PRIV})
     assert not_component(r, d, "R-ts-private-package", "test-support")
@@ -82,33 +101,33 @@ def test_a_private_root_changes_nothing(tmp_path):
 # ---- (5) only the boolean true counts
 @pytest.mark.parametrize("value", ['"true"', "false", "1", "null", '"yes"', "[true]", '{"private": true}'])
 def test_a_private_field_that_is_not_the_boolean_true_changes_nothing(tmp_path, value):
-    r = survey(tmp_path, {"package.json": PUB, "x/package.json": '{"name": "x", "private": %s}' % value})
-    assert "x" in r.allc and r.f["x"]["rule_id"] == "R-comp-package-json"
+    r = survey(tmp_path, {"package.json": PUB, "x-test/package.json": '{"name": "x", "private": %s}' % value})
+    assert "x-test" in r.allc and r.f["x-test"]["rule_id"] == "R-comp-package-json"
 
 
 def test_a_nested_private_key_is_not_the_top_level_field(tmp_path):
-    r = survey(tmp_path, {"package.json": PUB, "x/package.json": json.dumps({"name": "x", "publishConfig": {"private": True}})})
-    assert "x" in r.allc
+    r = survey(tmp_path, {"package.json": PUB, "x-test/package.json": json.dumps({"name": "x", "publishConfig": {"private": True}})})
+    assert "x-test" in r.allc
 
 
 # ---- (6) a private package that is not a workspace member (no root workspaces): also not a component
 def test_a_private_package_outside_any_workspace_is_test_support(tmp_path):
-    r = survey(tmp_path, {"harness/package.json": PRIV, "harness/run.js": "x", "core/pyproject.toml": "[project]\nname='c'\n"})
-    assert not_component(r, "harness", "R-ts-private-package", "test-support") and "core" in r.allc
+    r = survey(tmp_path, {"harness-test/package.json": PRIV, "harness-test/run.js": "x", "core/pyproject.toml": "[project]\nname='c'\n"})
+    assert not_component(r, "harness-test", "R-ts-private-package", "test-support") and "core" in r.allc
 
 
 def test_a_private_package_without_a_name_is_still_read(tmp_path):
-    r = survey(tmp_path, {"package.json": PUB, "x/package.json": '{"private": true}'})
-    assert not_component(r, "x", "R-ts-private-package", "test-support")
+    r = survey(tmp_path, {"package.json": PUB, "x-test/package.json": '{"private": true}'})
+    assert not_component(r, "x-test", "R-ts-private-package", "test-support")
 
 
 # ---- (iii) its files keep their file roles (a file-role scope), also without a root component
 def test_the_files_of_a_private_package_keep_their_roles(tmp_path):
-    files = {"core/pyproject.toml": "[project]\nname='c'\n", "harness/run.js": "x", "harness/.eslintrc": "{}"}
-    r1 = survey(tmp_path, {**files, "harness/package.json": PUB}, out="o1", name="t1")
-    r2 = survey(tmp_path, {**files, "harness/package.json": PRIV}, out="o2", name="t2")
-    assert "harness" in r1.allc and "harness" not in r2.allc
-    assert r1.rule == r2.rule and r2.rule["harness/run.js"] == "F-source-ext" and r2.rule["harness/.eslintrc"] == "F-config-component-dotfile"
+    files = {"core/pyproject.toml": "[project]\nname='c'\n", "harness-test/run.js": "x", "harness-test/.eslintrc": "{}"}
+    r1 = survey(tmp_path, {**files, "harness-test/package.json": PUB}, out="o1", name="t1")
+    r2 = survey(tmp_path, {**files, "harness-test/package.json": PRIV}, out="o2", name="t2")
+    assert "harness-test" in r1.allc and "harness-test" not in r2.allc
+    assert r1.rule == r2.rule and r2.rule["harness-test/run.js"] == "F-source-ext" and r2.rule["harness-test/.eslintrc"] == "F-config-component-dotfile"
 
 
 # ---- a private workspace ROOT below the repository root (it declares workspaces) stays an aggregator: it was not a component already
@@ -119,8 +138,8 @@ def test_a_private_aggregator_stays_an_aggregator(tmp_path):
 
 # ---- without manifest reading (names and sizes only) the rule never applies
 def test_without_manifest_reading_nothing_changes(tmp_path):
-    r = survey(tmp_path, {"package.json": PUB, "x/package.json": PRIV}, blobs=False)
-    assert "x" in r.allc and r.f["x"]["rule_id"] == "R-comp-package-json"
+    r = survey(tmp_path, {"package.json": PUB, "x-test/package.json": PRIV}, blobs=False)
+    assert "x-test" in r.allc and r.f["x-test"]["rule_id"] == "R-comp-package-json"
 
 
 # ---- no new file is opened: the package.json files were read before I1 too
@@ -145,7 +164,7 @@ def test_the_reader_still_returns_nothing_for_a_package_json_that_says_nothing()
 def test_i1_leaves_finding_ids_of_unaffected_components_unchanged(tmp_path):
     files1 = {"package.json": PUB, "lib/pom.xml": "<project/>", "core/pyproject.toml": "[project]\nname='c'\n"}
     r1 = survey(tmp_path, files1, out="r1", name="tree1")
-    r2 = survey(tmp_path, {**files1, "harness/package.json": PRIV, "gen-test/build.gradle": "", "gen-test/model/a.smithy": "x"}, out="r2", name="tree2")
+    r2 = survey(tmp_path, {**files1, "harness-test/package.json": PRIV, "gen-test/build.gradle": "", "gen-test/model/a.smithy": "x"}, out="r2", name="tree2")
     assert load_profile("code-repo-conventions", PROFILES).major == "0"
     for d in ("core", "lib"):
         rid = r1.f[d]["rule_id"]
@@ -153,8 +172,8 @@ def test_i1_leaves_finding_ids_of_unaffected_components_unchanged(tmp_path):
 
 
 def test_i1_in_the_composite_profile(tmp_path):
-    r = survey(tmp_path, {"package.json": PUB, "harness/package.json": PRIV, "apps/web/package.json": PRIV}, profile="code-repo-conventions,docs-site")
-    assert not_component(r, "harness", "R-ts-private-package", "test-support") and "apps/web" in r.allc
+    r = survey(tmp_path, {"package.json": PUB, "harness-test/package.json": PRIV, "apps/web-test/package.json": PRIV}, profile="code-repo-conventions,docs-site")
+    assert not_component(r, "harness-test", "R-ts-private-package", "test-support") and "apps/web-test" in r.allc
 
 
 # ======================================================================== I1-G ======================================================================================
@@ -272,7 +291,8 @@ def test_the_i1_rules_carry_provenance_and_the_known_limits():
     assert ids.index("R-fx-benchmark-project") < ids.index("R-fx-gradle-test-project") < ids.index("R-conv-docs")
     assert ids.index("R-ts-private-package") < ids.index("R-comp-package-json") and ids.index("R-fx-gradle-test-project") < ids.index("R-comp-gradle")
     assert t.not_segments == frozenset({"apps", "app", "applications", "services", "sites", "website", "web"})
-    assert g.tp_words == frozenset({"test", "tests", "testing"}) and g.tp_not_child == "src/main"
+    assert g.tp_words == frozenset({"test", "tests", "testing"}) and g.tp_nc_parent == "src" and [x.pattern for x in g.tp_nc_res] == ["^main$", "Main$"]
+    assert t.name_words == g.tp_words and any(x.startswith("Phase 1i I1b") for x in t.tuned_on) and any(x.startswith("Phase 1i I1b") for x in g.tuned_on)
     assert g.tp_other_than == frozenset({"build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "gradle.properties"})
 
 
@@ -285,7 +305,7 @@ def _prof(tmp_path, rule):
     return load_profile("t", tmp_path)
 
 
-TP = {"name_words": ["test"], "not_child_dir": "src/main", "other_than": ["build.gradle"]}
+TP = {"name_words": ["test"], "not_child_dir": {"parent": "src", "regex": ["^main$"]}, "other_than": ["build.gradle"]}
 
 
 @pytest.mark.parametrize("match", [
@@ -294,11 +314,16 @@ TP = {"name_words": ["test"], "not_child_dir": "src/main", "other_than": ["build
     {"has_file": "package.json", "not_path_segment": []},
     {"has_file": "package.json", "not_path_segment": ["a/b"]},
     {"has_file": "build.gradle", "test_project": {**TP, "extra": 1}},
-    {"has_file": "build.gradle", "test_project": {"name_words": ["test"], "not_child_dir": "src/main"}},
+    {"has_file": "build.gradle", "test_project": {"name_words": ["test"], "not_child_dir": {"parent": "src", "regex": ["^main$"]}}},
     {"has_file": "build.gradle", "test_project": {**TP, "name_words": []}},
     {"has_file": "build.gradle", "test_project": {**TP, "name_words": ["a-b"]}},
-    {"has_file": "build.gradle", "test_project": {**TP, "not_child_dir": "/src"}},
-    {"has_file": "build.gradle", "test_project": {**TP, "not_child_dir": "../x"}},
+    {"has_file": "build.gradle", "test_project": {**TP, "not_child_dir": "src/main"}},                   # the I1 string form is gone
+    {"has_file": "build.gradle", "test_project": {**TP, "not_child_dir": {"parent": "a/b", "regex": ["x"]}}},
+    {"has_file": "build.gradle", "test_project": {**TP, "not_child_dir": {"parent": "src", "regex": []}}},
+    {"has_file": "build.gradle", "test_project": {**TP, "not_child_dir": {"parent": "src", "regex": ["("]}}},
+    {"has_file": "build.gradle", "test_project": {**TP, "not_child_dir": {"parent": "..", "regex": ["x"]}}},
+    {"has_file": "package.json", "name_word": []},
+    {"has_file": "package.json", "name_word": ["a-b"]},
     {"has_file": "build.gradle", "test_project": {**TP, "other_than": []}},
     {"has_file": "build.gradle", "test_project": "yes"},
 ])
@@ -310,9 +335,9 @@ def test_the_new_keys_are_validated(tmp_path, match):
 def test_the_new_keys_load(tmp_path):
     r = _prof(tmp_path, {"match": {"has_file": "build.gradle", "test_project": TP}, "assign": {"role": "fixture"}, "grain": "dir"}).rules[0]
     assert r.test_project and r.is_dir_rule and r.tp_words == frozenset({"test"})
-    r = _prof(tmp_path, {"match": {"has_file": "package.json", "manifest_private": True, "not_path_segment": ["Apps"]}, "assign": {"role": "test-support"},
+    r = _prof(tmp_path, {"match": {"has_file": "package.json", "manifest_private": True, "not_path_segment": ["Apps"], "name_word": ["Test"]}, "assign": {"role": "test-support"},
                          "grain": "dir"}).rules[0]
-    assert r.manifest_private and r.not_segments == frozenset({"apps"}) and r.is_dir_rule
+    assert r.manifest_private and r.not_segments == frozenset({"apps"}) and r.name_words == frozenset({"test"}) and r.is_dir_rule
 
 
 # ======================================================================== I2 ========================================================================================
@@ -456,3 +481,36 @@ def test_the_i3_rule_uses_the_same_minimum_content_as_r_conv_docs():
     assert (a.content_files, a.content_min, a.content_exts) == (b.content_files, b.content_min, b.content_exts)
     assert [g.pattern for g in b.globs] == ["^src/docs$", "^src/main/docs$"] and b.grain == "component" and b.basis == "convention"
     assert any(t.startswith("Phase 1i I3") for t in b.tuned_on) and "Known limit" in b.evidence
+
+
+# ======================================================================== I1b =======================================================================================
+# ---- I1-G clause (b), I1b: "no src/main AND no src/<x>Main": a Kotlin Multiplatform main source set ships code too
+@pytest.mark.parametrize("ss", ["main", "commonMain", "jvmMain", "jsMain", "iosArm64Main", "Main"])
+def test_a_test_named_gradle_project_with_a_main_source_set_stays_a_component(tmp_path, ss):
+    r = survey(tmp_path, {**ROOT_G, "x-test/build.gradle": "", f"x-test/src/{ss}/kotlin/A.kt": "x", "x-test/src/commonTest/kotlin/T.kt": "x"})
+    assert "x-test" in r.allc and r.f["x-test"]["role"] == "component"
+
+
+def test_a_multiplatform_test_project_with_common_main_stays_a_component(tmp_path):
+    r = survey(tmp_path, {**ROOT_G, "settings.gradle": "include 'core', 'x-test'\n", "core/build.gradle": "", "core/src/commonMain/kotlin/C.kt": "x",
+                          "x-test/build.gradle.kts": "", "x-test/src/commonMain/kotlin/T.kt": "x", "x-test/src/jvmTest/kotlin/U.kt": "x"})
+    assert "x-test" in r.allc and r.f["x-test"]["rule_id"] == "M-workspace-member"
+
+
+@pytest.mark.parametrize("files", [
+    {"x-test/src/commonTest/kotlin/T.kt": "x"},                # a test source set only
+    {"x-test/src/mainframe/a.kt": "x"},                        # not main, not ...Main
+    {"x-test/src/domain/a.kt": "x"},                           # ends in a lower-case main
+    {"x-test/src/main": "x"},                                  # src/main is a FILE, not a folder
+    {"x-test/commonMain/a.kt": "x"},                           # a ...Main folder that is not a child of src
+    {"x-test/src/x/commonMain/a.kt": "x"},                     # a ...Main folder deeper than a child of src
+])
+def test_other_source_folders_do_not_count_as_main(tmp_path, files):
+    r = survey(tmp_path, {**ROOT_G, "x-test/build.gradle": "", **files})
+    assert not_component(r, "x-test", "R-fx-gradle-test-project", "fixture")
+
+
+def test_a_nested_project_below_a_test_project_is_still_a_fixture_even_with_a_main_source_set(tmp_path):
+    r = survey(tmp_path, {**ROOT_G, "x-codegen-test/build.gradle.kts": "", "x-codegen-test/model/a.smithy": "x",
+                          "x-codegen-test/inner/build.gradle.kts": "", "x-codegen-test/inner/src/commonMain/A.kt": "x"})
+    assert not_component(r, "x-codegen-test/inner", "R-fx-gradle-test-project", "fixture")
