@@ -227,6 +227,58 @@ def _data_scope(classifications: list) -> Optional[dict]:
     return None
 
 
+# Usage readings that Egeria's open-lineage data-scope governance service keeps in the additionalProperties
+# of a resource's DataScope classification (PO-27). The P0 check (the quickstart, 2026-11-27, pyegeria
+# 6.3.4) read every value as a string: counts and rates as decimal text, times as ISO-8601 UTC.
+_USAGE_COUNTS = ("readCount", "readsInWindow", "readersInWindow")
+_USAGE_RATES = ("readsPerDay",)
+_USAGE_TEXTS = ("lastReadAt", "lastReadInWindow", "analysisWindowStart", "analysisWindowEnd", "analysisTime",
+                "analysisService")
+
+
+def _usage_number(value, count: bool):
+    """A reading as a number (an int for a count), or None when it is missing or unreadable: never 0."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        n = float(value if isinstance(value, (int, float)) else str(value).strip())
+    except ValueError:
+        return None
+    if n != n or n in (float("inf"), float("-inf")):
+        return None
+    return int(n) if count and n.is_integer() else n
+
+
+def _usage(element: dict) -> Optional[dict]:
+    """The usage readings on an element's DataScope, numbers parsed, or None when it has none.
+
+    The DataScope is read where Egeria puts it: at elementHeader.dataScope (all 126 on the quickstart, P0) or as
+    an entry of elementHeader.classifications. Only the usage keys are returned; a DataScope with no
+    usage key (or no DataScope) is None, "not measured", never zeros."""
+    hdr = (element or {}).get("elementHeader") or {}
+    candidates = [hdr.get("dataScope")] + list(hdr.get("classifications") or [])
+    readings = None
+    for c in candidates:
+        if not isinstance(c, dict):
+            continue
+        name = c.get("classificationName") or (c.get("type") or {}).get("typeName")
+        if name == "DataScope" or (c is hdr.get("dataScope") and c.get("class") == "ElementClassification"):
+            readings = (c.get("classificationProperties") or {}).get("additionalProperties")
+            break
+    if not isinstance(readings, dict):
+        return None
+    out = {}
+    for k in _USAGE_COUNTS + _USAGE_RATES:
+        n = _usage_number(readings.get(k), k in _USAGE_COUNTS)
+        if n is not None:
+            out[k] = n
+    for k in _USAGE_TEXTS:
+        v = readings.get(k)
+        if isinstance(v, str) and v.strip():
+            out[k] = v.strip()
+    return out or None
+
+
 def _flavour(type_name: str, super_types: list, collections: list) -> dict:
     """Which of the spec's three flavours a resource is (§3).
 
