@@ -77,3 +77,43 @@ def test_no_service_password_configured_is_refused_in_words(monkeypatch):
 def test_no_builtin_service_password_is_set_at_import():
     import inspect as _inspect
     assert 'setdefault("EGERIA_USER_PASSWORD"' not in _inspect.getsource(mcp_server._bootstrap_runtime_defaults)
+
+
+# ── On the demo Portal, a sent password goes only with a demo persona's user name ────────────────────
+
+@pytest.fixture
+def demo_mode(monkeypatch):
+    import demo_config
+    monkeypatch.setattr(demo_config, "DEMO_MODE", True)
+
+
+def test_demo_non_persona_with_password_is_refused(demo_mode):
+    import egeria_auth
+    with pytest.raises(mcp_server.CredentialRefused) as exc:
+        mcp_server._mcp_credentials(None, None, "someone-not-in-the-persona-list", "some-password")
+    assert str(exc.value) == egeria_auth.DEMO_PERSONA_ONLY_WORDS
+
+
+def test_demo_non_persona_with_password_is_refused_before_any_call(demo_mode, monkeypatch):
+    called = []
+    monkeypatch.setattr(mcp_server, "_write_block_to_inbox", lambda *a, **k: called.append(1) or "x.md")
+    out = asyncio.run(_fn("dr_egeria_run_block")(None, "## View Glossaries\n",
+                                                 user_id="someone-not-in-the-persona-list", user_pass="pw"))
+    assert out.startswith("❌") and not called
+
+
+def test_demo_persona_with_password_is_accepted(demo_mode):
+    url, server, user, pwd = mcp_server._mcp_credentials(None, None, "peterprofile", "persona-password")
+    assert (user, pwd) == ("peterprofile", "persona-password")
+
+
+def test_demo_service_path_without_password_is_unchanged(demo_mode):
+    url, server, user, pwd = mcp_server._mcp_credentials(None, None, None, None)
+    assert (user, pwd) == ("svcuser", SECRET)
+
+
+def test_local_non_persona_with_password_is_unchanged(monkeypatch):
+    import demo_config
+    monkeypatch.setattr(demo_config, "DEMO_MODE", False)
+    url, server, user, pwd = mcp_server._mcp_credentials(None, None, "someone-not-in-the-persona-list", "pw")
+    assert (user, pwd) == ("someone-not-in-the-persona-list", "pw")

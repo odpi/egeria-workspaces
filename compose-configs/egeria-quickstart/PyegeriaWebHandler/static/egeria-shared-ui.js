@@ -14,6 +14,20 @@
  * Extracted verbatim from type-explorer.html (canonical) — keep in sync there.
  */
 
+/* The Egeria password is never kept in browser storage. Older pages stored it in localStorage
+ * 'egeria-creds' alongside the platform URL, view server and user ID; remove it, keeping the rest,
+ * on every page that loads this file. */
+(function removeStoredEgeriaPassword() {
+  try {
+    var s = localStorage.getItem('egeria-creds');
+    if (!s) return;
+    var c = JSON.parse(s);
+    if (c && typeof c === 'object' && Object.prototype.hasOwnProperty.call(c, 'password')) {
+      localStorage.setItem('egeria-creds', JSON.stringify({ url: c.url || '', server: c.server || '', userId: c.userId || '' }));
+    }
+  } catch (e) {}
+})();
+
 var _MERMAID_FIELD_LABELS = {
   mermaidGraph:                          'Context Diagram',
   iscImplementationMermaidGraph:         'ISC Implementation Graph',

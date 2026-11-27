@@ -1,0 +1,31 @@
+{
+ "_source": "PO-27 P0 read-only check, the quickstart, 2026-11-27T01:57:51Z, as erinoverview: get_elements_by_classification('DataScope'), pyegeria 6.3.4. 126 DataScope elements, every one at elementHeader.dataScope (none in elementHeader.classifications); 2 carry usage. Scrubbed: guid, typeName, qualifiedName and the usage keys of additionalProperties only (every value a string, as read).",
+ "elements": [
+  {
+   "guid": "9bb418d9-0001-4557-902c-7f1141d901dc",
+   "typeName": "DeployedDatabaseSchema",
+   "qualifiedName": "PostgreSQL Relational Database Schema::egeria-shared-postgres::egeria.open_lineage_log_store",
+   "usage": {
+    "readCount": "258",
+    "readsPerDay": "86.36",
+    "readsInWindow": "266",
+    "readersInWindow": "3",
+    "lastReadAt": "2026-11-27T00:29:17.154Z",
+    "lastReadInWindow": "2026-11-27T01:36:26Z",
+    "analysisWindowStart": "2026-10-28T01:36:26Z",
+    "analysisWindowEnd": "2026-11-27T01:36:26Z",
+    "analysisTime": "2026-11-27T01:36:26Z",
+    "analysisService": "open-lineage-data-scope-governance-service"
+   }
+  },
+  {
+   "guid": "7d9391d0-2d92-4992-8088-fd79aa54594a",
+   "typeName": "Topic",
+   "qualifiedName": "Topic::LocalKafka2.openlineage.events::inOut",
+   "usage": {
+    "readCount": "1",
+    "lastReadAt": "2026-11-23T23:33:29.889Z"
+   }
+  }
+ ]
+}

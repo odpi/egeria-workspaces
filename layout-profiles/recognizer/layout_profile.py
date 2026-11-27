@@ -27,15 +27,16 @@ GRAINS = ("subtree", "dir", "component")
 BASES = ("manifest", "manifest-content", "convention", "judgement")
 CONFIDENCES = ("high", "medium", "low")
 MATCH_KEYS = ("path_glob", "path_segment", "name", "name_regex", "extension", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry",
-              "component_scope", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex", "groups_projects", "group_segment_regex")
-DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex", "groups_projects", "group_segment_regex")   # evaluated against a directory, not a file
+              "component_scope", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex", "child_segment_regex", "groups_projects", "group_segment_regex", "min_content", "parent_not_role", "only_files")
+DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex", "child_segment_regex", "groups_projects", "group_segment_regex", "min_content", "parent_not_role", "only_files")   # evaluated against a directory, not a file
 COMPONENT_SCOPES = ("within", "root")                  # file rules only: under some component / directly in a component's directory
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
 TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar",
             "required", "allowed_only", "content_checks", "states")   # conformance (recognizer/grammar.py, Phase 2 notebook 05; states: 04a)
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
-RULE_OPTIONAL_KEYS = ("tuned_on",)       # which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect)
+RULE_OPTIONAL_KEYS = ("tuned_on", "file_scope")   # tuned_on: which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect);
+                                                  # file_scope (H1): a grain-dir directory claim whose files are classified as if it were a component (component_scope)
 MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_bytes", "member_rule", "aggregator_rule", "section_rule", "fallback_section_rule",
                          "docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule", "translation_rule", "included_build_rule")
 MANIFEST_RULE_NAMES = ("member_rule", "aggregator_rule", "section_rule", "fallback_section_rule", "translation_rule", "included_build_rule")
@@ -121,9 +122,19 @@ class Rule:
     orphaned: bool = False                       # directory rules: the PARENT directory holds nothing but this directory (no files, no other sub-directories)
     no_source: bool = False                      # directory rules: no file anywhere below the directory has a source-code extension
     parent_tokens: frozenset = frozenset()       # directory rules: one of these is a whole word of the PARENT directory's name (split at punctuation and case changes)
+    child_seg_parents: frozenset = frozenset()   # directory rules (F1): child_segment_regex's `parent`: the exact names a segment's PARENT segment must have
+    child_seg_res: tuple = ()                    # child_segment_regex's `regex` (case-sensitive unless written (?i)); with segment_res it forms ONE segment test (either may match)
     group_files: frozenset = frozenset()         # directory rules (E1): the manifest names that make a directory a project, for groups_projects / group_segment_regex
     group_min: int = 0                           # groups_projects: the directory is not itself a project and at least this many projects lie below it
     group_seg_res: tuple = ()                    # group_segment_regex: some PROPER ancestor whose own name matches one of these regexes groups at least group_min projects
+    content_files: frozenset = frozenset()       # directory rules (G2): min_content's `files`: a site or build configuration NAME directly in the directory or in a direct child folder
+    content_min: int = 0                         # min_content's `min_files`: otherwise at least this many files with one of content_exts anywhere below the directory (names only)
+    content_exts: tuple = ()                     # min_content's `extensions`
+    only_dirs: frozenset = frozenset()           # directory rules (H2): only_files' `child_dirs` (lower-case): any file below a DIRECT child folder of one of these names qualifies
+    only_res: tuple = ()                         # only_files' `names` (globs, case-insensitive): a file whose NAME matches one qualifies
+    only_files: bool = False                     # only_files is set: the directory holds at least one file and EVERY file anywhere below it qualifies (names only)
+    parent_not_roles: frozenset = frozenset()    # directory rules (H1): the PARENT directory is not claimed by a rule whose assigned role is one of these
+    file_scope: bool = False                     # H1: the directory this (grain dir) rule claims is a file-role scope, like a component directory, though it is not a component
     named_dir: bool = False                      # a subtree rule that names the directory (`name`) rather than a path: it is a directory rule
     scope: str = ""                              # file rules: '' | 'within' (under a component) | 'root' (directly in a component's directory)
 
@@ -131,8 +142,19 @@ class Rule:
     def is_dir_rule(self) -> bool:
         """A rule is evaluated against DIRECTORIES when it tests a directory's files (has_file / parent_has_file / has_entry /
         ancestor_has_entry) or claims a component: its path_glob / path_segment / name / name_regex then apply to the directory itself."""
-        return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries or self.no_source or self.parent_tokens or self.child_dirs or self.orphaned or self.segment_res or self.group_min) \
+        return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries or self.no_source or self.parent_tokens or self.child_dirs or self.orphaned or self.segment_res or self.child_seg_res or self.group_min or self.content_min or self.parent_not_roles or self.only_files) \
             or self.grain == "component" or self.named_dir
+
+    @property
+    def has_segment_test(self) -> bool:
+        return bool(self.segment_res or self.child_seg_res)
+
+    def segment_matches(self, segs: list) -> bool:
+        """The rule's ONE segment test: some whole segment of the path matches segment_regex, or some segment whose PARENT segment is exactly one of
+        child_segment_regex's `parent` names matches its `regex` (F1). The directory's own name counts as a segment, as for segment_regex."""
+        if self.segment_res and any(rx.search(sg) for sg in segs for rx in self.segment_res):
+            return True
+        return bool(self.child_seg_res) and any(segs[i - 1] in self.child_seg_parents and any(rx.search(segs[i]) for rx in self.child_seg_res) for i in range(1, len(segs)))
 
 
 @dataclass(frozen=True)
@@ -276,6 +298,20 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
             seg_res.append(re.compile(rx))
         except re.error as exc:
             raise ProfileError(f"{where}: bad segment_regex {rx!r}: {exc}") from exc
+    child_parents, child_res = frozenset(), []
+    if "child_segment_regex" in match:
+        cs = match["child_segment_regex"]
+        if not isinstance(cs, dict) or set(cs) != {"parent", "regex"} or not _as_list(cs["parent"]) or not _as_list(cs["regex"]) \
+                or not all(isinstance(x, str) and x and "/" not in x for x in _as_list(cs["parent"])):
+            raise ProfileError(f"{where}: match.child_segment_regex needs a mapping with parent (exact folder names, no '/') and regex (non-empty regexes)")
+        child_parents = frozenset(_as_list(cs["parent"]))
+        for rx in _as_list(cs["regex"]):
+            if not isinstance(rx, str) or not rx:
+                raise ProfileError(f"{where}: match.child_segment_regex needs non-empty regexes")
+            try:
+                child_res.append(re.compile(rx))
+            except re.error as exc:
+                raise ProfileError(f"{where}: bad child_segment_regex {rx!r}: {exc}") from exc
     group_files, group_min, group_seg_res = frozenset(), 0, []
     for key in ("groups_projects", "group_segment_regex"):
         if key in match:
@@ -294,6 +330,32 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
                     group_seg_res.append(re.compile(rx))
                 except (re.error, TypeError) as exc:
                     raise ProfileError(f"{where}: bad group_segment_regex {rx!r}: {exc}") from exc
+    content_files, content_min, content_exts = frozenset(), 0, ()
+    if "min_content" in match:
+        mc = match["min_content"]
+        if not isinstance(mc, dict) or set(mc) != {"files", "min_files", "extensions"} or not isinstance(mc["min_files"], int) or isinstance(mc["min_files"], bool) or mc["min_files"] < 1 \
+                or not _as_list(mc["files"]) or not all(isinstance(x, str) and x and "/" not in x for x in _as_list(mc["files"])) \
+                or not _as_list(mc["extensions"]) or not all(isinstance(x, str) and len(x) > 1 and x.startswith(".") and "/" not in x for x in _as_list(mc["extensions"])):
+            raise ProfileError(f"{where}: match.min_content needs a mapping with files (configuration file names, no '/'), min_files (an integer of 1 or more) and extensions ('.md', ...)")
+        content_files, content_min, content_exts = frozenset(_as_list(mc["files"])), mc["min_files"], tuple(_as_list(mc["extensions"]))
+    only_dirs, only_res = frozenset(), []
+    if "only_files" in match:
+        of = match["only_files"]
+        if not isinstance(of, dict) or set(of) != {"child_dirs", "names"} or not isinstance(of["child_dirs"], list) or not isinstance(of["names"], list) \
+                or not (of["child_dirs"] or of["names"]) or not all(isinstance(x, str) and x and "/" not in x for x in of["child_dirs"] + of["names"]):
+            raise ProfileError(f"{where}: match.only_files needs a mapping with child_dirs (folder names) and names (file-name globs), lists of strings without '/', not both empty")
+        only_dirs = frozenset(x.lower() for x in of["child_dirs"])
+        for g in of["names"]:
+            try:
+                only_res.append(re.compile(glob_to_regex(g), re.IGNORECASE))
+            except re.error as exc:
+                raise ProfileError(f"{where}: bad only_files name glob {g!r}: {exc}") from exc
+    file_scope = raw.get("file_scope", False)
+    if not isinstance(file_scope, bool) or (file_scope and (not dir_rule or raw["grain"] != "dir" or role == "component")):
+        raise ProfileError(f"{where}: file_scope is a boolean, and true only on a directory rule of grain dir whose role is not component")
+    parent_not = _as_list(match.get("parent_not_role", []))
+    if "parent_not_role" in match and (not parent_not or not all(isinstance(x, str) and x in roles for x in parent_not)):
+        raise ProfileError(f"{where}: match.parent_not_role needs role names the profile knows")
     name_res = []
     for rx in _as_list(match.get("name_regex", [])):
         try:
@@ -311,6 +373,9 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         segment_res=tuple(seg_res), child_dirs=frozenset(_as_list(match.get("has_child_dir", []))), orphaned=bool(match.get("orphaned", False)),
         no_source=bool(match.get("no_source_files", False)), parent_tokens=frozenset(t.lower() for t in _as_list(match.get("parent_name_token", []))),
         scope=scope, named_dir=named_dir, group_files=group_files, group_min=group_min, group_seg_res=tuple(group_seg_res),
+        child_seg_parents=child_parents, child_seg_res=tuple(child_res),
+        content_files=content_files, content_min=content_min, content_exts=content_exts, file_scope=file_scope,
+        parent_not_roles=frozenset(parent_not), only_dirs=only_dirs, only_res=tuple(only_res), only_files="only_files" in match,
     )
 
 
