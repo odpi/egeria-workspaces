@@ -1,0 +1,16 @@
+# A SAMPLE user overlay (Phase 1j J5): it extends the shipped code-repo-conventions and makes three different choices. It lives outside the shipped
+# profiles/ folder, so it is an OVERLAY: it may change settings, lists and rules, never what is read (D-J4). Only the shipped defaults are held-out-confirmed;
+# a run with this profile says so in its report.
+#   python -m recognizer.recognize PATHLIST --out OUT --profile profiles/samples/user-preferences-example.yaml
+profile_id: user-preferences-example
+version: 0.1.0
+status: proposed
+applies_to: code-repo
+extends: [code-repo-conventions]
+roles: [component]
+relevance: {primary: [component], supporting: [], hidden: []}
+settings:
+  scripts-are-tooling: false        # a top-level scripts folder is judged by the other rules (a component where it holds a manifest)
+  lint-config-is-tooling: false     # every top-level config folder is a configuration component
+  docs-min-files: 1                 # one documentation file is enough to make docs/ a documentation component
+rules: []

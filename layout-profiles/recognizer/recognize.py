@@ -30,10 +30,12 @@ from pathlib import Path
 try:
     from .layout_profile import Profile, Rule, compose_profiles, load_profile
     from . import manifests as mf
+    from . import configuration as cfg
 except ImportError:                                   # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from layout_profile import Profile, Rule, compose_profiles, load_profile  # type: ignore
     import manifests as mf  # type: ignore
+    import configuration as cfg  # type: ignore
 
 UNCLASSIFIED = "unclassified"
 SOURCE_EXTENSIONS = (".py", ".pyi", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".java", ".kt", ".scala", ".go", ".rs", ".rb", ".php", ".c", ".h", ".cc", ".cpp",
@@ -1177,6 +1179,7 @@ class Recognizer:
         if self.p.file_roles:                                      # the file-role layer: `other` is classified, and reported beside the target
             classes["shares"]["other_files"] = share(by_role.get("other", [0, 0])[0], total_files)
             classes["shares"]["other_bytes"] = share(by_role.get("other", [0, 0])[1], total_bytes)
+        classes["configuration"] = cfg.provenance(self.p)          # J5: the chain, the settings, what was disabled, replaced or overridden, config_sha256
         (out / "classes.json").write_text(json.dumps(classes, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
         (out / "report.md").write_text(render_report(classes), encoding="utf-8")
         return classes
@@ -1207,6 +1210,8 @@ def render_report(c: dict) -> str:
     for rid, v in sorted(c["by_rule"].items(), key=lambda kv: (-kv[1]["files"], kv[0])):
         lines.append(f"| {rid} | {v['files']:,} | {v['bytes']:,} |")
     lines += ["", "Unclassified is a result, not a failure: no rule of this profile claims those files.", ""]
+    if "configuration" in c:                                         # J5
+        lines += cfg.report_section(c["configuration"])[1:] + [""]
     return "\n".join(lines)
 
 
