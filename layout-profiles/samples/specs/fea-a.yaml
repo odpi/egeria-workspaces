@@ -1,0 +1,17 @@
+# A builder-written mutation spec for the 04a tests and notebook (A2, A3): every class of samples/fea_sweep_gen.py once, each variant named.
+# Use with the default grid (4x5x3) and --ran-fraction 0.8.
+mutations:
+  - class: missing-input-deck
+  - class: results-without-deck
+  - class: off-grammar-case-name
+    variant: no-decimal
+  - class: off-grammar-case-name
+    variant: stray-suffix
+  - class: off-grid-value
+    variant: t
+  - class: duplicate-combination
+    variant: E
+  - class: stray-deck
+  - class: bad-mesh-level
+  - class: unexpected-top-level-folder
+  - class: orphan-post

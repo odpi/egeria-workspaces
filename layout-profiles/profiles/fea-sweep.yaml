@@ -1,0 +1,259 @@
+# fea-sweep 0.1.0: the layout of a CalculiX-shaped finite-element parametric sweep (Phase 2, notebook 04a). File-NAME conventions only: CalculiX
+# (.inp input deck, .frd results, .dat printed output, .12d eigen data, .sta step status, .cvg convergence, .msg messages, .rout/.rin restart) and
+# Gmsh (.msh meshes); see SOURCES.md. No file is opened: sweep.yaml, decks and logs are names and sizes only.
+#
+# The scanned root is the PARENT of the study folder study-<name>/ (the recognizer makes parts only below a component that is not the scanned
+# root). The study is ONE component (kind simulation-sweep); each folder directly under cases/ is a part of it, and a case folder that follows
+# the case grammar carries its parameter tokens (E, t, mesh). Solver results, status files, logs, restart files, scratch and backups are hidden
+# (counted, not shown); templates/, materials/, mesh/, post/ and validation/ are supporting.
+#
+# Conformance (names only): the study's top level, cases/ and each case folder are closed sets; every folder directly under cases/ is a case, so
+# one that does not follow the case grammar is a misnamed case (PG-case-any); a FILE at the level of the case folders is unexpected.
+# Every case holds job.inp (RQ-case-deck); a case that ran (job.frd) also holds job.sta (RQ-case-status); a case without job.frd is counted as
+# not-run (ST-not-run, a state, never a finding); post/<case-id>/ needs a case of the same parameters (PG-post-case, match_of). The grid (the
+# values of E, t and mesh) is declared in the profile instance (recognize --instance), never read from sweep.yaml.
+# Other FEA tools (Code_Aster .comm/.export/.med, Abaqus .odb) need their own profile variants; they are not in 0.1.0.
+profile_id: fea-sweep
+version: 0.1.0
+status: proposed
+applies_to: any
+extends: [generic-relevance]
+roles: [component, source, config, docs, test, generated, runtime-output, scratch, backup]
+relevance:
+  primary: [component]
+  supporting: [source, config, docs, test]
+  hidden: [generated, runtime-output, scratch, backup]
+rules:
+  - id: R-fea-study
+    match: {has_file: sweep.yaml}
+    assign: {role: component, kind: simulation-sweep}
+    grain: component
+    basis: manifest
+    confidence: high
+    evidence: "a folder that holds sweep.yaml is the root of a parametric simulation sweep; sweep.yaml is recognized by its name only and never read"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-case
+    match: {path_glob: "study-*/cases/*"}
+    assign: {role: component, kind: simulation-case}
+    grain: component
+    basis: convention
+    confidence: high
+    evidence: "each folder directly under a sweep's cases/ folder is one case of the sweep (one point of the parameter grid), a part of the sweep"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-scratch
+    match: {path_glob: "study-*/scratch/**"}
+    assign: {role: scratch, kind: scratch-folder}
+    grain: subtree
+    basis: convention
+    confidence: high
+    evidence: "a sweep's scratch/ folder holds trial decks and notes, not part of the study"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-results
+    match: {path_glob: "study-*/cases/**", extension: [.frd, .dat, .12d]}
+    assign: {role: generated, kind: solver-results}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "CalculiX writes its results (.frd), printed output (.dat) and eigen data (.12d) beside the input deck when a case runs; shown as counts"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-restart
+    match: {path_glob: "study-*/cases/**", extension: [.rout, .rin]}
+    assign: {role: generated, kind: solver-restart}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "CalculiX restart files (.rout written, .rin read) are solver state, not inputs to show"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-status
+    match: {path_glob: "study-*/cases/**", extension: [.sta, .cvg, .msg]}
+    assign: {role: runtime-output, kind: solver-status}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "CalculiX writes the step status (.sta), convergence (.cvg) and messages (.msg) of a run: runtime output"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-run-log
+    match: {path_glob: "study-*/cases/*/run.log"}
+    assign: {role: runtime-output, kind: run-log}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "run.log in a case folder is the log of that case's run"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-backup
+    match: {path_glob: "study-*/**", extension: [.bak, "~"]}
+    assign: {role: backup, kind: backup-file}
+    grain: dir
+    basis: convention
+    confidence: medium
+    evidence: "a name ending in .bak or ~ is a backup or editor copy of another file; only the matching FILES are hidden"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-deck
+    match: {path_glob: "study-*/cases/*/job.inp"}
+    assign: {role: source, kind: input-deck}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "job.inp in a case folder is the case's CalculiX input deck"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-templates
+    match: {path_glob: ["study-*/templates/**", "study-*/materials/**"]}
+    assign: {role: source, kind: input}
+    grain: subtree
+    basis: convention
+    confidence: high
+    evidence: "templates/ and materials/ of a sweep hold the input decks and material cards that the cases are made from"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-mesh
+    match: {path_glob: "study-*/mesh/**"}
+    assign: {role: source, kind: mesh}
+    grain: subtree
+    basis: convention
+    confidence: high
+    evidence: "mesh/ of a sweep holds the Gmsh meshes (.msh) the cases use, one per part and mesh level"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-post
+    match: {path_glob: "study-*/post/**"}
+    assign: {role: generated, relevance: supporting, kind: derived}
+    grain: subtree
+    basis: convention
+    confidence: high
+    evidence: "post/ holds plots and summary tables derived from the results; derived, but what a reader looks at, so it is shown"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-validation
+    match: {path_glob: "study-*/validation/**"}
+    assign: {role: test, kind: validation-reference}
+    grain: subtree
+    basis: convention
+    confidence: medium
+    evidence: "validation/rig-<id>/ holds the test-rig reference data the results are compared with (names only)"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: R-fea-study-files
+    match: {path_glob: ["study-*/README.md", "study-*/sweep.yaml"]}
+    assign: {role: docs, kind: study-description}
+    grain: dir
+    basis: convention
+    confidence: high
+    evidence: "the study's README.md and sweep.yaml describe the sweep (names only; neither is read)"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+path_grammar:
+  - id: PG-study
+    pattern: "study-{study}"
+    tokens: {study: {regex: "[a-z0-9][a-z0-9-]*"}}
+    basis: convention
+    confidence: high
+    evidence: "a sweep's folder is study-<name>, lower case"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: PG-cases
+    pattern: "study-{study}/cases"
+    tokens: {study: {regex: "[a-z0-9][a-z0-9-]*"}}
+    basis: convention
+    confidence: high
+    evidence: "a sweep's cases are in its cases/ folder"
+  - id: PG-case
+    pattern: "study-{study}/cases/case_E{E}_t{t}_mesh-{mesh}"
+    tokens: {study: {regex: "[a-z0-9][a-z0-9-]*"}, E: {regex: "[0-9]+"}, t: {regex: "[0-9]+p[0-9]+"}, mesh: {regex: "[a-z]+"}}
+    yields: case
+    basis: convention
+    confidence: high
+    evidence: "a case folder is case_E<E>_t<t>_mesh-<level>: E the modulus (an integer), t the thickness with p for the decimal point (2p0 = 2.0), and the mesh level; the values allowed are the grid's, declared in the profile instance"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: PG-case-any
+    pattern: "study-{study}/cases/{case}"
+    tokens: {study: {regex: "[a-z0-9][a-z0-9-]*"}, case: {regex: "(?!)"}}
+    basis: convention
+    confidence: high
+    evidence: "catch-all: any other folder directly under cases/ is a misnamed case; its token regex (?!) never matches, so every such name is reported misnamed"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: PG-study-dir
+    pattern: "study-{study}/{dir}"
+    tokens: {study: {regex: "[a-z0-9][a-z0-9-]*"}, dir: {values: [templates, materials, mesh, validation]}}
+    basis: convention
+    confidence: high
+    evidence: "a sweep's supporting folders: templates/ and materials/ (inputs), mesh/ and validation/"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: PG-post
+    pattern: "study-{study}/post"
+    tokens: {study: {regex: "[a-z0-9][a-z0-9-]*"}}
+    basis: convention
+    confidence: high
+    evidence: "a sweep's post/ folder holds what is derived from the results: one folder per case and the sweep summary"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: PG-post-case
+    pattern: "study-{study}/post/case_E{E}_t{t}_mesh-{mesh}"
+    tokens: {study: {regex: "[a-z0-9][a-z0-9-]*"}, E: {regex: "[0-9]+"}, t: {regex: "[0-9]+p[0-9]+"}, mesh: {regex: "[a-z]+"}}
+    match_of: PG-case
+    basis: convention
+    confidence: high
+    evidence: "post/<case-id>/ holds the plots and summary of one case, so a case of the same parameters must exist"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+allowed_only:
+  - id: AO-root
+    under: "."
+    dirs: [PG-study]
+    basis: convention
+    confidence: high
+    evidence: "the scanned root is the folder that holds the study folder study-<name>/"
+  - id: AO-study
+    under: [PG-study]
+    dirs: [PG-cases, PG-study-dir, PG-post]
+    files: [README.md, sweep.yaml]
+    basis: convention
+    confidence: high
+    evidence: "a sweep's top level: README.md, sweep.yaml, cases/ and the supporting folders (scratch/ and backups are hidden, so not judged)"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: AO-cases
+    under: [PG-cases]
+    dirs: [PG-case, PG-case-any]
+    basis: convention
+    confidence: high
+    evidence: "cases/ holds case folders only; a file there (a stray deck such as job_old.inp) is unexpected"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: AO-case
+    under: [PG-case]
+    files: [job.inp]
+    basis: convention
+    confidence: high
+    evidence: "a case folder holds its input deck job.inp; the solver's results, status files, restart files and the run log are hidden, so not judged"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: AO-post
+    under: [PG-post]
+    dirs: [PG-post-case]
+    files: [sweep-summary.csv]
+    basis: convention
+    confidence: high
+    evidence: "post/ holds one folder per case (named as the case) and sweep-summary.csv"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: AO-post-case
+    under: [PG-post-case]
+    files: [summary.csv]
+    not_checked: ["plot-*.png"]
+    basis: convention
+    confidence: high
+    evidence: "post/<case-id>/ holds the case's summary.csv and its plots (plot-*.png, counted, not judged)"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+required:
+  - id: RQ-case-deck
+    of: PG-case
+    path: job.inp
+    basis: convention
+    confidence: high
+    evidence: "every case folder holds its input deck job.inp (a case with results but no deck cannot be reproduced)"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+  - id: RQ-case-status
+    of: PG-case
+    path: job.sta
+    when_present: job.frd
+    basis: convention
+    confidence: high
+    evidence: "a case that ran (it holds the results job.frd) also holds the solver's step status job.sta; presence by name only, never read"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]
+states:
+  - id: ST-not-run
+    of: PG-case
+    name: not-run
+    absent: job.frd
+    basis: convention
+    confidence: medium
+    evidence: "a case folder without job.frd has not run (or its results were removed): a state, counted, not a defect; a run that failed but wrote partial results is not told apart (names only)"
+    tuned_on: ["generated (fea_sweep_gen seeds 1-3)"]

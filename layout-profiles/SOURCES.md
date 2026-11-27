@@ -32,3 +32,11 @@ Nothing here is copied from a repository: profiles are written from conventions,
   the git tree API, as `samples/ds000117/paths.tsv`) and `dataset_description.json` verbatim (blob 40598363). Nothing else: no sidecar, table, text,
   derivative or data file. Fetched once at build time; nothing is fetched at run time.
 - The BIDS validator (bids-validator, MIT) is a reference only: it is not installed, run or copied here (the Architect runs it once, offline, after B4).
+- Phase 2 notebook 04a (A0): `samples/fea_sweep_gen.py` writes synthetic CalculiX-shaped sweep trees. It models file-NAME conventions only, which
+  are facts: the CalculiX extensions `.inp`, `.frd`, `.dat`, `.sta`, `.cvg`, `.msg`, `.12d`, `.rout`/`.rin` (CalculiX, http://www.calculix.de/, by
+  Guido Dhondt; GNU GPL version 2 "or (at your option) any later version", GPL-2.0-or-later (checked 2026-11-27)) and the Gmsh mesh extension
+  `.msh` (Gmsh, https://gmsh.info/, by Christophe Geuzaine and Jean-Francois Remacle; GNU GPL "Version 2 or later, with the following exception",
+  GPL-2.0-or-later with a linking exception, https://gmsh.info/LICENSE.txt (checked 2026-11-27)). The licences are recorded for provenance only:
+  only file-name conventions are modelled. Abaqus (proprietary) is named only as the origin of the `.inp` keyword style; nothing of it is
+  modelled beyond the shared extension. Every generated file is a one-line placeholder: no solver code, input deck, mesh, result, example,
+  tutorial tree or documentation text is copied, and no tool is shipped, installed or run.

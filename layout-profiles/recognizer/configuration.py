@@ -1,12 +1,15 @@
 """Phase 1j J5: the provenance of a survey's configuration. What profile chain ran (ids, versions, shipped or overlay), every setting's value and whether it is
 the default, the rules disabled and replaced, the lists overridden, and `config_sha256`, the hash of the canonical effective configuration (the chain, the
 settings, the lists, every effective rule as compiled, the structural rules, the grammars and what is read). Documentation text (evidence, tuned_on, the
-settings' doc) is not part of the hash. Names only: nothing here reads a repository.
+settings' doc) is not part of the hash. Grammar items (path_grammar, name_grammar, required, allowed_only, content_checks) and 04a's states enter as their
+semantic fields only (GRAMMAR_KEEP); all but the first two only when the profile has them. Names only: nothing here reads a repository.
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
+import re
 
 
 def _rule(r) -> dict:
@@ -24,6 +27,51 @@ def _reading(m) -> dict | None:
             "skip_fields": sorted(m.skip_fields), **ids, **refs}
 
 
+# The grammar items of a profile (recognizer/grammar.py) enter the hash as plain dicts of their SEMANTIC fields, never by repr(). Per class: the fields kept;
+# every other field is documentation (evidence, tuned_on, origin: the defining profile, J6) or derived from a kept field when the profile is compiled.
+GRAMMAR_KEEP = {
+    "PathPattern": ("id", "basis", "confidence", "pattern", "yields", "match_of", "segs"),     # segs: per segment the compiled strict and loose regexes
+                                                                                           # and the literal text: they carry the tokens' regexes and values
+    "NameGrammar": ("id", "basis", "confidence", "entities", "suffix_token", "suffixes", "ext_default", "ext_by_suffix"),
+    "Required": ("id", "basis", "confidence", "path", "of", "for_each", "category", "file", "when_present"),
+    "AllowedOnly": ("id", "basis", "confidence", "under", "dirs", "files", "name_grammar", "not_checked"),
+    "ContentCheck": ("id", "basis", "confidence", "file", "field", "regex", "non_empty"),
+    "State": ("id", "basis", "confidence", "of", "name", "absent"),                 # 04a F3
+}
+GRAMMAR_DROP = {
+    "PathPattern": ("evidence", "origin", "tuned_on", "token_names"),               # token_names: read from pattern
+    "NameGrammar": ("evidence", "origin", "tuned_on"),
+    "Required": ("evidence", "origin", "tuned_on"),
+    "AllowedOnly": ("evidence", "origin", "tuned_on", "not_checked_res"),            # not_checked_res: compiled from not_checked
+    "ContentCheck": ("evidence", "origin", "tuned_on"),
+    "State": ("evidence", "origin", "tuned_on"),
+}
+GRAMMAR_OPTIONAL = ("required", "allowed_only", "content_checks", "states")   # in the hash only when non-empty, so a profile without them keeps its config_sha256
+
+
+def _plain(v):
+    """A kept field's value as plain JSON data: a compiled regex as its pattern and flags, tuples as lists, mappings with string keys."""
+    if isinstance(v, re.Pattern):
+        return {"regex": v.pattern, "flags": int(v.flags)}
+    if isinstance(v, (tuple, list)):
+        return [_plain(x) for x in v]
+    if isinstance(v, dict):
+        return {str(k): _plain(x) for k, x in v.items()}
+    if v is None or isinstance(v, (str, int, float, bool)):
+        return v
+    raise TypeError(f"configuration: no canonical form for {type(v).__name__}")
+
+
+def _grammar_item(x) -> dict:
+    """One grammar item, semantic fields only (GRAMMAR_KEEP). A class not listed there is refused, so a new kind cannot enter the hash by repr()."""
+    if isinstance(x, dict):                              # not produced by the current loader; kept for a dict-shaped item
+        return {k: _plain(v) for k, v in x.items() if k not in ("evidence", "tuned_on", "origin")}
+    name = type(x).__name__
+    if not dataclasses.is_dataclass(x) or name not in GRAMMAR_KEEP:
+        raise TypeError(f"configuration: no canonical form for grammar item {name}")
+    return {k: _plain(getattr(x, k)) for k in GRAMMAR_KEEP[name]}
+
+
 def chain(profile) -> list:
     shipped = dict(getattr(profile, "chain_shipped", ()) or ())
     return [{"profile_id": pid, "version": ver, "shipped": shipped.get(pid)} for pid, ver in profile.composed_of]
@@ -39,11 +87,12 @@ def canonical(profile) -> dict:
         "rules": [_rule(r) for r in profile.rules],
         "file_roles": [_rule(r) for r in profile.file_roles],
         "structural": [strip(dict(s)) for s in profile.structural],
-        "path_grammar": [strip(dict(x)) if isinstance(x, dict) else repr(x) for x in profile.path_grammar],
-        "name_grammar": [strip(dict(x)) if isinstance(x, dict) else repr(x) for x in profile.name_grammar],
+        "path_grammar": [_grammar_item(x) for x in profile.path_grammar],            # in order: the first matching pattern types a folder
+        "name_grammar": [_grammar_item(x) for x in profile.name_grammar],
         "manifest_reading": _reading(profile.manifest_reading),
         "disabled": list(getattr(profile, "disabled", ())), "replaced": list(getattr(profile, "replaced", ())),
         "overridden": list(getattr(profile, "overridden", ())),
+        **{k: [_grammar_item(x) for x in getattr(profile, k, ())] for k in GRAMMAR_OPTIONAL if getattr(profile, k, ())},
     }
 
 

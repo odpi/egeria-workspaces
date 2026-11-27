@@ -35,7 +35,7 @@ COMPONENT_SCOPES = ("within", "root")                  # file rules only: under 
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
 TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar",
-            "required", "allowed_only", "content_checks", "lists", "disable", "settings")   # required, allowed_only, content_checks: conformance (recognizer/grammar.py, Phase 2 notebook 05)
+            "required", "allowed_only", "content_checks", "states", "lists", "disable", "settings")   # required, allowed_only, content_checks, states: conformance (recognizer/grammar.py, Phase 2 notebook 05; states: 04a)
 LIST_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")                     # J0: a named list (`lists:`), referred to as `$name` (a whole value or list element) or `{$name}` in a regex
 LIST_REF = re.compile(r"^\$([a-z0-9][a-z0-9-]*)$")
 LIST_INTERP = re.compile(r"\{\$([a-z0-9][a-z0-9-]*)\}")
@@ -217,6 +217,7 @@ class Profile:
     required: tuple = ()                         # grammar.Required
     allowed_only: tuple = ()                     # grammar.AllowedOnly
     content_checks: tuple = ()                   # grammar.ContentCheck (only dataset_description.json, only under bids-dataset)
+    states: tuple = ()                           # grammar.State (04a F3: counts per typed folder, never findings)
     composed_of: tuple = ()                      # ((profile_id, version), ...) in the order their rules are checked
     lists: dict = field(default_factory=dict)    # J0: the named lists this profile sees (its own and those of the profiles it extends): name -> tuple of strings
     disabled: tuple = ()                         # J1: inherited rule ids this profile (and the profiles it extends) removed with `disable:`
@@ -673,7 +674,7 @@ def _grammar(source: str, key: str, items: Any, origin: str) -> tuple:
     if not isinstance(items, list):
         raise ProfileError(f"{source} {key}: expected a list")
     make = {"path_grammar": gm.compile_path_grammar, "name_grammar": gm.compile_name_grammar, "required": gm.compile_required,
-            "content_checks": gm.compile_content_check}.get(key)
+            "content_checks": gm.compile_content_check, "states": gm.compile_state}.get(key)
     out = []
     for n, item in enumerate(items):
         try:
@@ -686,7 +687,7 @@ def _grammar(source: str, key: str, items: Any, origin: str) -> tuple:
     return tuple(out)
 
 
-GRAMMAR_LISTS = ("path_grammar", "name_grammar", "required", "allowed_only", "content_checks")
+GRAMMAR_LISTS = ("path_grammar", "name_grammar", "required", "allowed_only", "content_checks", "states")
 
 
 def _gm():
@@ -1049,7 +1050,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     if any(gram[k] for k in GRAMMAR_LISTS):
         gm = _gm()
         try:
-            gm.check_references(source, gram["path_grammar"], gram["name_grammar"], gram["required"], gram["allowed_only"])
+            gm.check_references(source, gram["path_grammar"], gram["name_grammar"], gram["required"], gram["allowed_only"], gram["states"])
             gm.check_content(source, gram["content_checks"])
         except gm.GrammarError as exc:
             raise ProfileError(str(exc)) from exc
@@ -1085,7 +1086,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     chain = list(dict.fromkeys(chain))
     return Profile(profile_id=pid, version=version, status=doc["status"], applies_to=doc["applies_to"], roles=tuple(all_roles),
                    relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), manifest_reading=mreading, extends=tuple(extends), path_grammar=gram["path_grammar"], name_grammar=gram["name_grammar"],
-                   required=gram["required"], allowed_only=gram["allowed_only"], content_checks=gram["content_checks"],
+                   required=gram["required"], allowed_only=gram["allowed_only"], content_checks=gram["content_checks"], states=gram["states"],
                    composed_of=tuple(composed), structural=tuple(structural), lists=lists,
                    disabled=tuple(dict.fromkeys(inh_disabled + disable)), replaced=tuple(dict.fromkeys(inh_replaced + replaced)),
                    effective_order=tuple(r.id for r in rules) + tuple(r.id for r in fr_out),

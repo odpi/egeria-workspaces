@@ -841,6 +841,184 @@ checks that the outputs are cleared, that no absolute or local path is in it, th
 code, and that the Phase 3 cells are marked. It works from the notebook's own folder in a checkout; the work folder is a temporary folder, removed
 at the end.
 
+## Phase 2, notebook 04a, A0: a seeded CalculiX-shaped parametric-sweep generator (`samples/fea_sweep_gen.py`)
+
+Command: `python samples/fea_sweep_gen.py --seed 1 --out OUT [--grid 4x5x3 | --large] [--ran-fraction 0.8] [--mutations SPEC.yaml]`. `OUT` must be
+absent or empty.
+
+It writes `OUT/study-<name>/` (the tree), `OUT/paths.tsv` (`path<TAB>size` of the study's files, sorted, paths starting with `study-<name>/`) and
+`OUT/truth.jsonl` (one line per injected deviation: path, kind, status, class, the variant for a class that has variants, and the expected rule for
+off-grammar-case-name; empty for a clean tree).
+**The scanned root is `OUT`, the parent of the study folder**: the recognizer makes parts only below a component that is not the scanned root, and the
+study is that component (approved by the Architect, 2026-11-27).
+
+The tree models file NAME conventions only: CalculiX (`.inp` input deck, `.frd` results, `.dat` printed output, `.sta` step status, `.cvg`
+convergence, `.msg` messages, `.12d` eigen data, `.rout` restart) and Gmsh (`.msh` meshes). Every file is a one-line placeholder; no deck, mesh,
+result or example is copied and no tool is run (SOURCES.md). Per study: `README.md`, `sweep.yaml` (presence only, never read), `templates/base.inp`,
+`materials/<material>.inp`, `mesh/<part>_<level>.msh`, one folder `cases/case_E<E>_t<t>_mesh-<level>/` per grid point (`job.inp` and `run.log`;
+a case that ran also has `job.frd`, `job.dat`, `job.sta`, `job.cvg`, `job.msg`, and some `job.12d` and `job.rout`), `post/<case-id>/` for each case
+that ran and `post/sweep-summary.csv`, `validation/rig-<id>/`, and junk to hide (`scratch/`, `job.inp.bak`, `README.md~`, `templates/base.inp~`).
+
+The grid is `--grid ExTxM`: E moduli (integers, GPa), t thicknesses (`p` is the decimal point: `t2p0` = 2.0) and M mesh levels (the first M of
+coarse, medium, fine). The default is 4x5x3 = 60 cases; `--large` is 10x20x3 = 600. `--ran-fraction` (default 0.8, rounded) of the cases ran. The
+seed picks the grid values, the study name, parts and materials, which cases ran, and the mutation targets. The same seed, grid, fraction and spec
+give a byte-identical tree and truth (tested).
+
+A spec is `mutations:`, a list of `{class, variant?, count?}`, applied in a fixed class order. The closed list of 9 classes (kind/status as ruled
+by the Architect, 2026-11-27):
+
+| class | example | kind/status |
+|---|---|---|
+| missing-input-deck | a case that did not run has no `job.inp` | structure/missing (path `<case>/job.inp`) |
+| results-without-deck | a case that ran has no `job.inp` | structure/missing (path `<case>/job.inp`; never the same case as the class above) |
+| off-grammar-case-name, variants no-decimal, wrong-case, stray-suffix | `case_E210_t2_mesh-fine`, `Case_E210_t2p0_mesh-fine`, `case_E210_t2p0_final_v2` | naming/misnamed (a folder under `cases/` is a case); rule PG-case or PG-case-any, below |
+| off-grid-value, variants E, t | `case_E999_...`, `case_E210_t9p9_...` | naming/off-grid |
+| duplicate-combination, variants E, t | `case_E0210_...` beside `case_E210_...`, `t2p00` beside `t2p0` | structure/duplicate (path: the SECOND folder in sorted path order) |
+| stray-deck | `cases/job_old.inp` at the level of the case folders | structure/unexpected |
+| bad-mesh-level | `case_E210_t2p0_mesh-ultra`, in case names only (mesh is a grid axis) | naming/off-grid |
+| unexpected-top-level-folder | `study-<name>/misc/` | structure/unexpected |
+| orphan-post | `post/<case-id>/` whose case is gone | structure/unexpected ("no matching case") |
+
+A mutation that renames or removes a case removes that case's `post/` folder too (except orphan-post), so each mutation is one deviation. Each
+mutation uses its own case. off-grid and duplicate are found only against a declared grid (the profile instance, A2). A bad mesh level is never
+injected into `mesh/` file names: those are not judged against the levels in 0.1.0.
+
+**The expected rule of a misnamed case folder** is decided by one stated criterion, the same in the generator (`expected_case_rule`) and the engine:
+the name has the case SHAPE (the last segment of the PG-case pattern with its literals compared ignoring case and each regex token relaxed to
+one character or more: `case_E.+_t.+_mesh-.+`, any case) gives PG-case; any other folder name directly under `cases/` gives the catch-all
+PG-case-any. So `case_E210_t2_mesh-fine` and `Case_E210_...` are PG-case, `case_E210_t2p0_final_v2` and `case_E210_t2p0_mesh-` are PG-case-any.
+
+## Phase 2, notebook 04a, A1: the `fea-sweep` profile 0.1.0 and the parameter tokens on part findings (F1)
+
+`profiles/fea-sweep.yaml` (extends `generic-relevance`) recognizes a CalculiX-shaped parametric sweep by file NAMES only (`sweep.yaml`, decks
+and logs are never opened). The scanned root is the PARENT of `study-<name>/`. `tuned_on: "generated (fea_sweep_gen seeds 1-3)"`; no rule
+names a real study.
+
+- **One component, N parts.** The folder that holds `sweep.yaml` is ONE component, kind `simulation-sweep` (basis manifest: the file's presence,
+  as for `pyproject.toml`). Every folder directly under its `cases/` is a part (`part_of` the sweep), kind `simulation-case`.
+- **Supporting:** `templates/` and `materials/` (role source, kind `input`), `mesh/` (source, `mesh`), each case's `job.inp` (source,
+  `input-deck`), `post/` (role generated with relevance supporting, kind `derived`), `validation/` (test, `validation-reference`), and the
+  study's `README.md` and `sweep.yaml`.
+- **Hidden (counted per rule in `classes.json`, not shown):** `.frd`, `.dat` and `.12d` in a case (generated, `solver-results`); `.rout` and
+  `.rin` (generated, `solver-restart`); `.sta`, `.cvg` and `.msg` (runtime-output, `solver-status`); a case's `run.log` (runtime-output,
+  `run-log`); `scratch/` (scratch); and `*.bak` and `*~` below the study (backup, files only).
+- **Closed sets (conformance, names only):** the scanned root holds the study folder (AO-root); the study holds `README.md`, `sweep.yaml`,
+  `cases/` and the supporting folders (AO-study); `cases/` holds case folders only (AO-cases; a FILE there, such as `job_old.inp`, is
+  `structure`/`unexpected`); a case folder holds `job.inp` (AO-case; its hidden files are not judged). `templates/`, `materials/`, `mesh/`,
+  `post/` and `validation/` are not closed sets in 0.1.0.
+- **The case grammar** PG-case is `study-{study}/cases/case_E{E}_t{t}_mesh-{mesh}`: E `[0-9]+`, t `[0-9]+p[0-9]+` (`p` is the decimal point),
+  mesh `[a-z]+`. The values allowed are the grid's, declared in the profile instance (A2), not in the profile.
+- **The catch-all PG-case-any** is `study-{study}/cases/{case}` with the token regex `(?!)`. That regex never matches, so no folder ever conforms
+  to PG-case-any; but the engine reports a folder that has the SHAPE of an allowed pattern as misnamed, and a regex token's shape is any text, so
+  every folder under `cases/` that fails PG-case is `naming`/`misnamed`: cases/ holds only cases, so such a folder is a misnamed case. The rule
+  is PG-case when the name has PG-case's shape (`case_E.+_t.+_mesh-.+`, any case) and PG-case-any otherwise; the generator's
+  `expected_case_rule` states the same criterion (tested on both sides and on the boundary). It is a declared rule of this profile only.
+
+**F1, tokens on part findings** (approved by the Architect, 2026-11-27). A COMPONENT finding whose folder a path_grammar pattern with `yields`
+typed gets `yields` (the pattern's word, here `case`) and `tokens` (the raw name strings: `{"E": "210", "mesh": "fine", "study": "bracket",
+"t": "2p0"}`; `t2p00` stays `2p00`). A folder that fails the grammar is still a part, without tokens. Nothing changes for a profile whose
+`yields` patterns type no component folder (bids-dataset types subject folders, which are not components) or that has no `yields` (tested both
+ways); the Phase 1 and NB05 outputs are byte-identical.
+
+**Collapse (UC1), generic-relevance alone versus fea-sweep** (default grid 4x5x3; `--large` 10x20x3):
+
+| tree | files | folders | generic-relevance: components, hidden files, unclassified | fea-sweep: components + parts, hidden files (bytes) |
+|---|---:|---:|---|---|
+| seed 1 | 559 | 116 | 0, 62 (11.1%), 88.9% | 1 + 60, 342 = 61.2% (61.4% of bytes) |
+| seed 2 | 562 | 115 | 0, 62 (11.0%), 89.0% | 1 + 60, 348 = 61.9% (62.1%) |
+| seed 3 | 560 | 115 | 0, 62 (11.1%), 88.9% | 1 + 60, 345 = 61.6% (61.8%) |
+| seed 1 `--large` | 5,439 | 1,088 | 0, 602 (11.1%), 88.9% | 1 + 600, 3,386 = 62.3% (62.5%) |
+
+generic-relevance hides only the `.log` and `.bak` files and names no component, so a reader sees 497 files in 116 folders; fea-sweep shows one
+sweep of 60 cases and hides the solver output. Byte shares follow file shares because every generated file is a one-line placeholder. Token
+extraction is 100% on clean names (every case of seeds 1-3 and the large grid; tested). Clean trees: 0 conformance findings, score 1.0.
+
+**Known limits (0.1.0):**
+- Mesh file names under `mesh/` are not checked against the declared levels (0.1.0); a bad mesh level is found in case names only.
+- One solver's naming: other FEA tools (Code_Aster `.comm`/`.export`/`.med`, Abaqus `.odb`) need their own profile variants; they are not in 0.1.0.
+- `templates/`, `materials/`, `mesh/`, `post/` and `validation/` are not closed sets; their file names are not judged.
+
+## Phase 2, notebook 04a, A2: conformance and drift on the sweep (F2 to F6), and the profile instance
+
+```
+python -m recognizer.recognize OUT/paths.tsv --out SURVEY --profile fea-sweep --instance fea-sweep.instance.yaml
+python -m recognizer.conformance SURVEY
+python -m recognizer.drift OLD_SURVEY NEW_SURVEY
+```
+
+`fea-sweep` 0.1.0 adds, by names only:
+- **RQ-case-deck**: every case folder holds `job.inp` (structure/missing at `<case>/job.inp`).
+- **RQ-case-status**: a case that holds `job.frd` (it RAN) also holds `job.sta`.
+- **ST-not-run**: a case without `job.frd` is counted as `not-run` in `classes.json` (`conformance.states`), with its path. It is a state, not a
+  finding, and it is not in the score.
+- **PG-post-case** with `match_of: PG-case`: a `post/<case-id>/` with no case of the same parameters is structure/unexpected, evidence "no matching
+  case". `post/` holds the case folders and `sweep-summary.csv` (AO-post); a case's post folder holds `summary.csv` and `plot-*.png` (not checked).
+
+**The profile instance** (`--instance FILE`): the grid comes from a small YAML that the notebook writes beside the profile, never from `sweep.yaml`
+(never opened). Its keys are `instance_of` (the profile id), `id`, `grid` and an optional `evidence`; `grid` maps a path_grammar id to the values
+each of its tokens may take, for example `{PG-case: {E: [70, 210], t: [2p0, 3p5], mesh: [coarse, medium, fine]}}`. It is read whole (at most
+64 KiB) by PyYAML's safe loader, it is the ONLY content read, and it is listed in `content-reads.txt` (`instance: <file name>`) and in
+`classes.json` (`conformance.instance`: id, file name, sha256, the grid). With no instance there is no grid check at all. Each typed folder of a
+grid pattern is two checked items:
+- **off-grid** (naming/off-grid, rule `<id>.off-grid`): a token value outside the declared grid. One finding per folder; its evidence names each
+  such token and the grid, and `reason` lists the tokens. The mesh level is a grid axis like E and t.
+- **duplicate** (structure/duplicate, rule `<id>.duplicate`): the second and later folders, in sorted path order, whose tokens equal an earlier
+  folder's. Its evidence names the first folder.
+
+Numbers are compared normalised: a value of digits with `p` as the decimal point, or a number in the instance, is a decimal, so `t2p00` == `t2p0`
+== 2.0 and `E0210` == `E210`. Anything else is compared as a string.
+
+**Engine features** (approved by the Architect, 2026-11-27; each is inert for a profile that does not use it, tested, and the Phase 1 and NB05
+outputs are byte-identical):
+- **F2**: a `required` item with `of` and `path` (and optionally `when_present`) asks that every folder typed by that pattern hold the file. Presence
+  is tested on ALL listed names, hidden ones included (names only, nothing opened). When a profile declares such an item, folders that hold only
+  hidden files (outside hidden subtrees such as `scratch/`) are typed too, so the missing deck of a case that holds only its (hidden) `run.log`
+  is found. Hidden files are still never judged against a closed set, and part formation, relevance counts and shares do not change. A case
+  folder whose files are all hidden is still a part; F2 types it, so its missing deck is reported (and its part finding carries its tokens).
+- **F3**: `states: [{id, of, name, absent}]`, counted per typed folder.
+- **F4**: `--instance` (above); the statuses `off-grid` (kind naming) and `duplicate` (kind structure) join the closed lists.
+- **F5**: a path_grammar item may name `match_of: <path_grammar id>`; tokens the two patterns share are compared normalised.
+- **F6**: when either survey has PART findings, `drift.json` has `parts: {new, resolved, unchanged}` by finding id, and the Drift section of
+  `report.md` says so; otherwise the key is absent. Conformance drift is unchanged.
+
+**Results** (tests; seeds 1-3; the builder-written specs `samples/specs/fea-a.yaml`, every class once, and `fea-b.yaml`, the other variants with
+counts above one): clean trees have 0 conformance findings and score 1.0; clean to mutated gives `new` = exactly `truth.jsonl` by path, kind and
+status (and rule for the misnamed cases), with nothing resolved. Drift (`samples/fea_sweep_gen.py`'s `evolve`: add 6 cases at a new modulus,
+declared in the instance, remove 2, rename 1): 0 new and 0 resolved conformance findings; parts 7 new, 3 resolved, 57 unchanged. The rename is
+one resolved and one new, because **finding ids are path-based** (`sha256(profile@major | rule | path)`): move detection is backlog. Two runs
+give byte-identical outputs.
+
+**Known limits (0.1.0):**
+- Case state from names only: "ran" means `job.frd` exists. A run attempt that failed but wrote partial results is not told apart from a good
+  one; that needs `.sta` content, a later decision (D2).
+- A renamed case is one resolved part and one new part, not a move.
+- The grid is checked per token; a grid that is not a full product (some combinations never planned) cannot be declared, and a grid point with no
+  case is not reported.
+
+## Phase 2, notebook 04a, A3: the notebook
+
+`coco-workbooks/7. layout-semantics/04a simulation-case-layout.ipynb` generates a clean sweep (seed 1, 4x5x3), recognizes it with
+`generic-relevance` alone (497 assets shown in 116 folders, no component) and with `fea-sweep` (1 sweep, 60 cases, 61% hidden output), prints a
+parameter table from the case tokens, writes the profile instance in its work folder and checks conformance (100% conformant; 0 findings; 12
+not-run), injects `samples/specs/fea-a.yaml` (10 new findings, equal to `truth.jsonl`), answers the E1 layout questions (which cases exist, which
+ran, which are off-grid, where the results are) from the stored outputs, and reports drift after `evolve` (parts 7 new, 3 resolved). The Resource
+Explorer, Portal, Egeria and lineage cells are marked "Phase 3/4 — not run". Outputs are cleared. `tests/test_notebook04a.py` runs the code cells
+top to bottom with the network blocked and checks for cleared outputs, no absolute or local path, standard-library and PyYAML imports only, and
+the marked Phase 3/4 cells.
+
+**Terms** follow the Architect's glossary of simulation studies (2026-11-27): the **sweep** is the set of cases from one template over one declared
+grid, ONE component (the folder `study-<name>/`); a **case** is ONE grid point, a part of the sweep and never the sweep; a **run** is one attempt
+to execute a case; a **survey** is one snapshot, written once.
+
+**Known limits of 0.1.0 (cases, run attempts and versions; brief Amendment 2):**
+- One folder per case; "ran" means `job.frd` exists. A failed attempt is indistinguishable from a good one (names only).
+- CalculiX writes `job.*` in place, so a re-run overwrites the previous attempt and is invisible. A copied attempt folder (`case_..._v2`,
+  `_old`) is reported as a misnamed case, or as a duplicate when its parameters match.
+- Survey outputs are immutable snapshots; drift compares two snapshots. Attempts are not sealed, and nothing checks that a finished result was
+  left unchanged (UC14, not built).
+- A renamed case is one resolved finding plus one new finding.
+- Attempt folders, a current-attempt pointer, sealing and any read of `job.sta` are not built; they wait for Dan's decisions D1 and D2.
+
 ## Phase 1i (I1, I1-G, I1b, I2, I3, I4): internal test packages are not components; more test-folder names; a docs folder under src/ (`code-repo-conventions` 0.10.0, `code-repo` 0.5.0)
 
 Cause (Dan's ruling 1): internal test projects outside a top-level test folder (private npm workspace packages, test-harness projects, unpublished Gradle test projects) were components.
@@ -907,7 +1085,7 @@ To make different choices, write an OVERLAY: a profile in your own folder (or an
 
 An overlay can NARROW what is read, never widen it (D-J4): it cannot add a reader, a manifest field or a content read, or loosen a cap, and the loader rejects a profile that tries; turning `private-test-packages-internal` off also stops the read of package.json's `private` field. The `_shipped` argument of `parse_profile` is a private in-process hook: trusted code in the same process may assert that an in-memory profile is shipped; the command line never sets it, so D-J4 applies to everything a user passes on the command line.
 
-Every survey records its configuration; compare surveys with `recognizer.config_drift`, which reports a configuration change rather than drift. Keys follow the same scheme: a key states the settings its labels assume and carries `when:` deltas for other settings (`scoring/effective_key.py`); a run whose settings no delta covers is UNSCOREABLE for the paths those settings govern.
+Every survey records its configuration; compare surveys with `recognizer.config_drift`, which reports a configuration change rather than drift. The configuration hash (`config_sha256`) takes the grammar lists (`path_grammar`, `name_grammar`, and `required`, `allowed_only`, `content_checks` and 04a's `states` when a profile has them) by their semantic fields only (G-FIX): an evidence, `tuned_on` or defining-profile change does not move it, and a change to a pattern, a token, an entry, a check or a state does. A profile without those lists keeps its hash. Keys follow the same scheme: a key states the settings its labels assume and carries `when:` deltas for other settings (`scoring/effective_key.py`); a run whose settings no delta covers is UNSCOREABLE for the paths those settings govern.
 
 **Known limits:** only the default configuration is held-out-confirmed; a run with non-default settings says so in its report. A user overlay that replaces rules will make its own findings' ids differ from the defaults (by design, after J6).
 ## Decisions made so far (for review)
@@ -927,7 +1105,7 @@ Every survey records its configuration; compare surveys with `recognizer.config_
 
 1. Findings volume on a runtime-output-heavy tree (decision 3): accepted as is; counts per rule, role and relevance are in `classes.json`.
 2. The duplicate-tree test for worktree copies (backlog, M2+).
-3. NB05's grammar lists (`required`, `allowed_only`, the path and name grammars) and Phase 1j's `$name` lists, settings and `disable`: whether the grammar lists also take part in that machinery is not decided. The merge of main into the NB05 branch keeps NB05's behaviour as it was; conformance finding ids use the grammar rule's defining profile (J6), and drift reports a configuration change first (J5).
+3. NB05's grammar lists (`required`, `allowed_only`, the path and name grammars, and 04a's `states`) and Phase 1j's `$name` lists, settings and `disable`: whether the grammar lists also take part in that machinery is not decided. The merge of main into the NB05 branch keeps NB05's behaviour as it was; conformance finding ids use the grammar rule's defining profile (J6; a 04a grid finding, whose rule comes from the profile instance, keeps the run profile), and drift reports a configuration change first (J5).
 
 No Egeria type or API is used or invented; no key was opened for M0, and in M1 only the three tune-set keys were used (via the scorer);
 the two held-out keys and repositories were not touched.

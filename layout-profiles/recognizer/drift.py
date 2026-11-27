@@ -7,6 +7,9 @@ CONFIGURATION CHANGE (or UNRECORDED), reported as such, and the findings are not
 in OLD only, `unchanged` in both (an unchanged id whose status or reason changed, for example a field that went from invalid to missing, is
 marked `changed` with the old status). The two surveys must use the same profile id and major version, or the ids are not comparable.
 Writes NEW_OUTDIR/drift.json (or --out) and puts a "Drift" section into NEW_OUTDIR/report.md, replacing an earlier one.
+
+04a F6: when either survey has PART findings (component findings with part_of), drift.json also has `parts: {new, resolved}`, the parts compared
+by finding_id (which is path-based: a renamed part is one resolved and one new). Without part findings the key is absent.
 """
 from __future__ import annotations
 
@@ -33,6 +36,18 @@ class DriftError(ValueError):
 
 def _profile(outdir: Path) -> dict:
     return json.loads((Path(outdir) / "classes.json").read_text(encoding="utf-8"))["profile"]
+
+
+def part_findings(outdir: Path) -> list:
+    """The PART findings of a survey: component findings that are part_of a component."""
+    out = []
+    with open(Path(outdir) / "findings.jsonl", encoding="utf-8") as fh:
+        for line in fh:
+            if line.strip():
+                f = json.loads(line)
+                if f.get("grain") == "component" and f.get("part_of"):
+                    out.append(f)
+    return out
 
 
 def diff(old: Path, new: Path) -> dict:
@@ -62,9 +77,17 @@ def diff(old: Path, new: Path) -> dict:
         unchanged.append(x)
     new_ = [slim(b[i]) for i in order(set(b) - set(a), b)]
     resolved = [slim(a[i]) for i in order(set(a) - set(b), a)]
-    return {"old_profile": po, "new_profile": pn,
-            "counts": {"new": len(new_), "resolved": len(resolved), "unchanged": len(unchanged), "changed": sum(1 for x in unchanged if x.get("changed"))},
-            "new": new_, "resolved": resolved, "unchanged": unchanged}
+    d = {"old_profile": po, "new_profile": pn,
+         "counts": {"new": len(new_), "resolved": len(resolved), "unchanged": len(unchanged), "changed": sum(1 for x in unchanged if x.get("changed"))},
+         "new": new_, "resolved": resolved, "unchanged": unchanged}
+    pa = {f["finding_id"]: f for f in part_findings(old)}
+    pb = {f["finding_id"]: f for f in part_findings(new)}
+    if pa or pb:                                          # F6: only when a survey has parts, so drift.json is unchanged for every other profile
+        part = lambda f: {"finding_id": f["finding_id"], "path": f["path"], "kind": f["kind"], "part_of": f["part_of"]}
+        d["parts"] = {"new": [part(pb[i]) for i in sorted(set(pb) - set(pa), key=lambda i: (pb[i]["path"], i))],
+                      "resolved": [part(pa[i]) for i in sorted(set(pa) - set(pb), key=lambda i: (pa[i]["path"], i))],
+                      "unchanged": len(set(pa) & set(pb))}
+    return d
 
 
 def headline(d: dict) -> str:
@@ -78,6 +101,13 @@ def section(d: dict) -> str:
     if "configuration_change" in d:
         return "\n".join([BEGIN, "## Drift since the previous survey", "", f"**{headline(d)}**; findings are not compared (see drift.json).", "", END, ""])
     lines = [BEGIN, "## Drift since the previous survey", "", f"**{headline(d)}** (by finding id).", ""]
+    if "parts" in d:
+        pt = d["parts"]
+        lines += [f"Parts: {len(pt['new'])} new, {len(pt['resolved'])} resolved, {pt['unchanged']} unchanged (by finding id, which is path-based: a "
+                  "renamed part is one resolved and one new).", ""]
+        for name in ("new", "resolved"):
+            if pt[name]:
+                lines += [f"Parts {name}:", "", "| path | kind |", "|---|---|"] + [f"| {f['path']} | {f['kind']} |" for f in pt[name][:200]] + [""]
     for name in ("new", "resolved"):
         if d[name]:
             lines += [f"{name.capitalize()}:", "", "| path | kind | status | rule |", "|---|---|---|---|"]
