@@ -18,12 +18,13 @@ import pytest
 
 _HANDLER = Path(__file__).resolve().parent.parent / "resource_browser_handler.py"
 _FUNCS = {"_type_names", "_display_name", "_related", "_related_recs", "_classifications", "_data_scope",
-          "_owner", "_has_scope", "_classifications_read", "_kind_of", "_is_resource", "_looks_automated", "_is_repo", "_row", "_elements",
+          "_owner", "_has_scope", "_classifications_read", "_usage", "_usage_number", "_kind_of", "_is_resource", "_looks_automated", "_is_repo", "_row", "_elements",
           "_is_schema_attribute", "_is_schema_element", "_container_of",
           "_part_kind", "_part_row", "_part_types", "_kind_types", "_parse_kinds", "_may_have_more", "_search_parts", "_get_depth1"}
 _CONSTS = {"_SKIP_CLASSIFICATIONS", "_RESOURCE_TYPES", "_NOT_RESOURCES", "_KINDS", "_PART_KINDS", "_BADGES",
            "_REPO_QN_PREFIX", "_REPO_TYPES", "_PART_OF_KEYS", "_COUNTED_TYPES", "_PART_LOOKUP_CAP", "_SEARCH_PAGE",
-           "_LOOKUP_CONCURRENCY", "_KIND_IDS", "_STRUCTURE_INCLUDE", "_OTHER_KINDS"}
+           "_LOOKUP_CONCURRENCY", "_KIND_IDS", "_STRUCTURE_INCLUDE", "_OTHER_KINDS",
+           "_USAGE_COUNTS", "_USAGE_RATES", "_USAGE_TEXTS"}
 
 
 @pytest.fixture(scope="module")

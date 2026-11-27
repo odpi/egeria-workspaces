@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 _PAGE = (Path(__file__).resolve().parent.parent / "resource-browser.html").read_text()
-_NAMES = ("fmtRate", "lastReadOf", "usageChip", "popularSummary")
+_NAMES = ("fmtRate", "lastReadOf", "usageChip", "rowUsageChip", "popularSummary")
 
 
 def _fn(name: str) -> str:
@@ -110,3 +110,55 @@ console.log(JSON.stringify(popularSummary({ available: true, ranking: [], unrank
 def test_the_tile_no_longer_says_popularity_is_never_available():
     assert "Nothing is ranked by use until Egeria records it" not in _PAGE
     assert "Not shown until the Locator reads a usage measure" not in _PAGE
+
+
+# ── P3: chips on rows and the resource page; search wording ──────────────────
+
+def test_result_rows_show_the_usage_chip_fed_by_the_server():
+    row = _fn("ResultRow")
+    # Every row that went through the server's _row has `usage` (null when not measured).
+    assert "rowUsageChip(row) && el(UsageChip, { chip: rowUsageChip(row) })" in row
+
+
+def test_the_resource_page_usage_chip_comes_from_usage_not_raw_readings():
+    assert "res.usage !== undefined && el(UsageChip, { usage: res.usage })" in _PAGE
+    scope = _fn("ScopeChips")
+    assert "readings" not in scope and "additionalProperties" not in scope.split("var chips")[1]
+
+
+def test_search_help_says_usage_is_shown_not_used_for_ordering():
+    assert "Egeria holds no usage measure" not in _PAGE
+    assert "is shown on each row, not used for ordering" in _PAGE
+
+
+@needs_node
+def test_a_row_whose_classifications_were_not_read_says_usage_not_read():
+    """Architect ruling 2 (2026-11-27): muted "usage not read", as "scope not read" (R1, 2026-11-17);
+    neither silent nor "not measured"."""
+    d = _run(r"""
+console.log(JSON.stringify({
+  notRead: rowUsageChip({ usage: null, scopeRead: false }),
+  notReadEvenWithUsage: rowUsageChip({ usage: { readsPerDay: 2 }, scopeRead: false }),
+  notMeasured: rowUsageChip({ usage: null, scopeRead: true }),
+  measured: rowUsageChip({ usage: { readsPerDay: 2 } }),
+  notFromRow: rowUsageChip({ guid: 'x' }) }));""")
+    assert d["notRead"]["text"] == "usage not read" and d["notRead"]["absent"] is True
+    assert d["notReadEvenWithUsage"]["text"] == "usage not read"
+    assert d["notMeasured"]["text"] == "not measured"
+    assert d["measured"]["text"] == "2 reads/day" and d["measured"]["absent"] is False
+    assert d["notFromRow"] is None
+
+
+@needs_node
+def test_the_window_in_the_chip_title_shows_only_the_parts_present():
+    d = _run(r"""
+console.log(JSON.stringify([
+  usageChip({ readsPerDay: 1, analysisWindowStart: '2026-10-28T01:36:26Z', analysisWindowEnd: '2026-11-27T01:36:26Z' }).title,
+  usageChip({ readsPerDay: 1, analysisWindowEnd: '2026-11-27T01:36:26Z' }).title,
+  usageChip({ readsPerDay: 1, analysisWindowStart: '2026-10-28T01:36:26Z' }).title,
+  usageChip({ readsPerDay: 1 }).title]));""")
+    assert "window: 2026-10-28T01:36:26Z to 2026-11-27T01:36:26Z" in d[0]
+    assert "window ends 2026-11-27T01:36:26Z" in d[1]
+    assert "window starts 2026-10-28T01:36:26Z" in d[2]
+    assert "window" not in d[3]
+    assert not any("undefined" in t for t in d)

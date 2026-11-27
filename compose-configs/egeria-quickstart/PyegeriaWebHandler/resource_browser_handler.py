@@ -243,7 +243,7 @@ def _has_scope(scope: Optional[dict]) -> bool:
 
 
 # Usage readings that Egeria's open-lineage data-scope governance service keeps in the additionalProperties
-# of a resource's DataScope classification (PO-27). The P0 check (Rocky quickstart, 2026-11-27, pyegeria
+# of a resource's DataScope classification (PO-27). The P0 check (the quickstart, 2026-11-27, pyegeria
 # 6.3.4) read every value as a string: counts and rates as decimal text, times as ISO-8601 UTC.
 _USAGE_COUNTS = ("readCount", "readsInWindow", "readersInWindow")
 _USAGE_RATES = ("readsPerDay",)
@@ -267,7 +267,7 @@ def _usage_number(value, count: bool):
 def _usage(element: dict) -> Optional[dict]:
     """The usage readings on an element's DataScope, numbers parsed, or None when it has none.
 
-    The DataScope is read where Egeria puts it: at elementHeader.dataScope (all 126 on Rocky, P0) or as
+    The DataScope is read where Egeria puts it: at elementHeader.dataScope (all 126 on the quickstart, P0) or as
     an entry of elementHeader.classifications. Only the usage keys are returned; a DataScope with no
     usage key (or no DataScope) is None, "not measured", never zeros."""
     hdr = (element or {}).get("elementHeader") or {}
@@ -589,6 +589,7 @@ async def get_resource(guid: str):
         "status": hdr.get("status", ""),
         "classifications": [c for c in classifications if c["name"] not in ("DataScope", "Ownership")],
         "dataScope": _data_scope(classifications),
+        "usage": _usage(el),
         "owner": _owner(classifications),
         "flavour": _flavour(type_name, supers, collections),
         "collections": [{k: c[k] for k in ("guid", "typeName", "displayName")} for c in collections],
@@ -1484,9 +1485,8 @@ _RECENT_PAGE = 50
 _RECENT_SHOWN = 25
 _CACHE_TTL = 600             # seconds; the page shows the age
 
-_ORDER_NOTE = ("Ordered by text relevance: name matches first, then qualified name, description, "
-               "tag, keyword, owner and column matches. Egeria holds no usage measure yet, "
-               "so nothing is ranked by use.")
+# Search order is text relevance only (PO-27): ranking search by use is a separate decision.
+_ORDER_NOTE = "Ordered by text relevance. Usage is shown, not used for ordering."
 
 
 def _kind_of(type_name: str, super_types: list) -> str:
@@ -1617,6 +1617,7 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         "dataScope": _data_scope(cls),
         "hasScope": _has_scope(_data_scope(cls)),
         "scopeRead": _classifications_read(hdr),
+        "usage": _usage(el),
         "updatedBy": versions.get("updatedBy") or versions.get("createdBy") or "",
         "updateTime": versions.get("updateTime") or versions.get("createTime") or "",
         "automated": _looks_automated(versions.get("updatedBy") or versions.get("createdBy")),

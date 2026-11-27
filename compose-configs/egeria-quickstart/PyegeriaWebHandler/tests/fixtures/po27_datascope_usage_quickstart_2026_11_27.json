@@ -1,5 +1,5 @@
 {
- "_source": "PO-27 P0 read-only check, Rocky quickstart, 2026-11-27T01:57:51Z, as erinoverview: get_elements_by_classification('DataScope'), pyegeria 6.3.4. 126 DataScope elements, every one at elementHeader.dataScope (none in elementHeader.classifications); 2 carry usage. Scrubbed: guid, typeName, qualifiedName and the usage keys of additionalProperties only (every value a string, as read).",
+ "_source": "PO-27 P0 read-only check, the quickstart, 2026-11-27T01:57:51Z, as erinoverview: get_elements_by_classification('DataScope'), pyegeria 6.3.4. 126 DataScope elements, every one at elementHeader.dataScope (none in elementHeader.classifications); 2 carry usage. Scrubbed: guid, typeName, qualifiedName and the usage keys of additionalProperties only (every value a string, as read).",
  "elements": [
   {
    "guid": "9bb418d9-0001-4557-902c-7f1141d901dc",

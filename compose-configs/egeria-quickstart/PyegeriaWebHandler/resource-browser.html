@@ -1324,12 +1324,6 @@ function ScopeChips({ scope, guid }) {
   if (!scope) return el(React.Fragment, null, head, chip('none', 'data scope', 'not recorded', 'No DataScope classification on this resource'), setIt);
   var chips = scopeParts(scope).map(function(p) { return chip(p.key, p.k, p.v, p.title); });
   if (!chips.length) chips.push(chip('bare', 'data scope', 'no time or place recorded', 'The DataScope classification carries no time, place or other dimension'));
-  var readings = scope.additionalProperties && typeof scope.additionalProperties === 'object' ? scope.additionalProperties : null;
-  if (readings && Object.keys(readings).length) {
-    chips.push(chip('usage', 'usage', readings.readCount !== undefined ? readings.readCount + ' reads' : Object.keys(readings).length + ' readings',
-      (readings.analysisService ? 'From ' + readings.analysisService + '\n' : '') +
-      Object.keys(readings).map(function(k) { return k + ': ' + readings[k]; }).join('\n')));
-  }
   return el(React.Fragment, null, head, chips, setIt);
 }
 
@@ -1451,7 +1445,8 @@ function ResourcePage({ guid, creds, personaId }) {
       el('span', { className: 'rb-note' }, '·'),
       el('span', { className: 'rb-attrib' }, 'owner: ', res.owner ? el('b', null, res.owner) : el('span', { className: 'rb-absent' }, 'not recorded')),
       el(EgeriaFeedbackWidget, { guid: guid, creds: creds, readOnly: !res.canWrite })),
-    el('div', { className: 'rb-row', style: { marginTop: 10, gap: 6 } }, el(ScopeChips, { scope: res.dataScope, guid: guid })),
+    el('div', { className: 'rb-row', style: { marginTop: 10, gap: 6 } }, el(ScopeChips, { scope: res.dataScope, guid: guid }),
+      res.usage !== undefined && el(UsageChip, { usage: res.usage })),
     el(TagsRow, { guid: guid, creds: creds, canWrite: res.canWrite }),
 
     el('div', { className: 'rb-grid' },
@@ -1581,7 +1576,9 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
       isTerm(row) ? (row.contentStatus && el('span', { className: 'rb-chip', title: 'The term\u2019s content status' }, row.contentStatus.toLowerCase()))
         : row.partOf !== undefined ? el(PartOfLine, { row: row }) : el(FlavourBadge, { flavour: flav }),
       row.badges.map(function(b) { return el('span', { key: b, className: 'rb-chip' }, b); }),
-      row.hasScope && el('span', { className: 'rb-chip', title: 'This resource records a data scope (time, place or another dimension)' }, '◷ scope')),
+      row.hasScope && el('span', { className: 'rb-chip', title: 'This resource records a data scope (time, place or another dimension)' }, '◷ scope'),
+      // Usage readings (PO-27): reads/day, "not measured", or "usage not read" when the row's classifications were not read.
+      rowUsageChip(row) && el(UsageChip, { chip: rowUsageChip(row) })),
     row.qualifiedName && row.qualifiedName !== row.displayName && el('div', { className: 'rb-qn' }, row.qualifiedName),
     row.description
       ? el('div', { className: 'd' }, row.description)
@@ -2092,8 +2089,12 @@ function usageChip(u) {
   if (lastRead !== null) {
     titleLines.push('last read: ' + lastRead);
   }
-  if (u.analysisWindowEnd !== undefined) {
+  if (u.analysisWindowStart !== undefined && u.analysisWindowEnd !== undefined) {
     titleLines.push('window: ' + u.analysisWindowStart + ' to ' + u.analysisWindowEnd);
+  } else if (u.analysisWindowEnd !== undefined) {
+    titleLines.push('window ends ' + u.analysisWindowEnd);
+  } else if (u.analysisWindowStart !== undefined) {
+    titleLines.push('window starts ' + u.analysisWindowStart);
   }
   if (u.analysisService !== undefined) {
     titleLines.push('from ' + u.analysisService);
@@ -2111,6 +2112,18 @@ function usageChip(u) {
     text = 'usage recorded';
   }
   return {text: text, absent: false, title: titleLines.join('\n')};
+}
+
+// The usage chip for a search or browse row, or null for a record that did not come from the server's _row.
+// A row whose classifications were not read says so, muted, as "scope not read" does (Architect R1, 2026-11-17):
+// neither silent nor "not measured".
+function rowUsageChip(row) {
+  if (!row || row.usage === undefined) return null;
+  if (row.scopeRead === false) {
+    return { text: 'usage not read', absent: true,
+      title: 'This list was read without each resource\u2019s classifications, so whether it has usage readings is unknown' };
+  }
+  return usageChip(row.usage);
 }
 
 // What the Popular tile shows: loading, failed (never shown as "none"), none (no readings on the platform)
@@ -2138,8 +2151,8 @@ function popularSummary(p, err) {
     asOf: p.asOf || null, capped: !!p.capped};
 }
 
-function UsageChip({ usage }) {
-  var c = usageChip(usage);
+function UsageChip({ usage, chip }) {
+  var c = chip || usageChip(usage);
   return el('span', { className: 'rb-chip' + (c.absent ? ' rb-absent' : ''), title: c.title },
     el('span', { className: 'k' }, 'usage'), c.text);
 }
@@ -2281,7 +2294,7 @@ function HelpPage() {
       el('div', null,
         sec('Search', el('div', null,
           p('Search matches names, qualified names and descriptions, informal tags, search keywords and owners. It also finds the parts of resources: columns and other schema attributes, and data fields. Each part shows what holds it, and the resource that holds it is found too ("contains: …").'),
-          p('Pick one kind or several with the Kind buttons (for example Schemas and Tables together); All clears them. Results are ordered by how directly the text matches: Egeria holds no usage measure the Locator reads yet.'),
+          p('Pick one kind or several with the Kind buttons (for example Schemas and Tables together); All clears them. Results are ordered by how directly the text matches. Usage (reads per day, from Egeria\u2019s open-lineage data-scope service) is shown on each row, not used for ordering.'),
           p('"Load more results" stays offered until Egeria returns an empty page: a short page is not the last page.'))),
         sec('Browse and the resource page', el('div', null,
           p('Browse lists resources by tag, badge, owner, source system, collection, folder, search keyword, category, flavour or data scope. A resource page shows what Egeria holds about one resource, and says what is missing rather than showing an empty table.'),
