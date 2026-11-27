@@ -1564,6 +1564,146 @@ function CompactRow({ row, idx }) {
     el('span', { className: 'rb-note' }, (row.updatedBy || 'unknown') + (row.automated ? ' (automation)' : '') + ' · ' + fmtDate(row.updateTime)));
 }
 
+// ── Usage readings and the Popular tile (PO-27) ─────────────────────────────
+// Readings come from Egeria's open-lineage data-scope service, via the server's _usage. A resource
+// without readings is "not measured", never 0; a measured 0 says so.
+// At most two decimals: 86.36, 0.5, 4.
+function fmtRate(n) {
+  return String(Math.round(n * 100) / 100);
+}
+
+// The last read: lastReadAt, else the last read inside the analysis window.
+function lastReadOf(u) {
+  if (u) {
+    if (u.lastReadAt) return u.lastReadAt;
+    if (u.lastReadInWindow) return u.lastReadInWindow;
+  }
+  return null;
+}
+
+// {text, absent, title} for a usage chip; u is the server's _usage (null when not measured).
+function usageChip(u) {
+  if (u === null || u === undefined) {
+    return {text: 'not measured', absent: true,
+      title: 'No usage readings are recorded on this resource\u2019s data scope'};
+  }
+  var titleLines = [];
+  if (u.readsPerDay !== undefined) {
+    titleLines.push('reads per day: ' + fmtRate(u.readsPerDay));
+  }
+  if (u.readsInWindow !== undefined) {
+    titleLines.push('reads in window: ' + u.readsInWindow);
+  }
+  if (u.readersInWindow !== undefined) {
+    titleLines.push('readers in window: ' + u.readersInWindow);
+  }
+  if (u.readCount !== undefined) {
+    titleLines.push('reads recorded: ' + u.readCount);
+  }
+  var lastRead = lastReadOf(u);
+  if (lastRead !== null) {
+    titleLines.push('last read: ' + lastRead);
+  }
+  if (u.analysisWindowStart !== undefined && u.analysisWindowEnd !== undefined) {
+    titleLines.push('window: ' + u.analysisWindowStart + ' to ' + u.analysisWindowEnd);
+  } else if (u.analysisWindowEnd !== undefined) {
+    titleLines.push('window ends ' + u.analysisWindowEnd);
+  } else if (u.analysisWindowStart !== undefined) {
+    titleLines.push('window starts ' + u.analysisWindowStart);
+  }
+  if (u.analysisService !== undefined) {
+    titleLines.push('from ' + u.analysisService);
+  }
+  var text;
+  if (u.readsPerDay !== undefined) {
+    text = fmtRate(u.readsPerDay) + ' reads/day';
+    if (u.readsPerDay === 0) {
+      text = text + ' (measured)';
+    }
+  } else if (u.readCount !== undefined) {
+    text = u.readCount + ' reads';
+    titleLines.unshift('no reads-per-day reading');
+  } else {
+    text = 'usage recorded';
+  }
+  return {text: text, absent: false, title: titleLines.join('\n')};
+}
+
+// The usage chip for a search or browse row, or null for a record that did not come from the server's _row.
+// A row whose classifications were not read says so, muted, as "scope not read" does (Architect R1, 2026-11-17):
+// neither silent nor "not measured".
+function rowUsageChip(row) {
+  if (!row || row.usage === undefined) return null;
+  if (row.scopeRead === false) {
+    return { text: 'usage not read', absent: true,
+      title: 'This list was read without each resource\u2019s classifications, so whether it has usage readings is unknown' };
+  }
+  return usageChip(row.usage);
+}
+
+// What the Popular tile shows: loading, failed (never shown as "none"), none (no readings on the platform)
+// or ranked (the first `shown`, how many more, the measured-but-unranked, the as-of).
+function popularSummary(p, err) {
+  if (typeof err === 'string' && err !== '' && !p) {
+    return {state: 'failed', message: 'Popularity could not be read: ' + err,
+      rows: [], more: 0, unranked: [], asOf: null, capped: false};
+  }
+  if (!p) {
+    return {state: 'loading', message: 'Loading…',
+      rows: [], more: 0, unranked: [], asOf: null, capped: false};
+  }
+  if (p.available === false && p.failed) {
+    return {state: 'failed', message: p.reason,
+      rows: [], more: 0, unranked: [], asOf: null, capped: false};
+  }
+  if (p.available === false) {
+    return {state: 'none', message: p.reason,
+      rows: [], more: 0, unranked: [], asOf: null, capped: false};
+  }
+  var rows = (p.ranking || []).slice(0, p.shown || 10);
+  return {state: 'ranked', message: '', rows: rows,
+    more: Math.max(0, (p.ranking || []).length - rows.length), unranked: p.unranked || [],
+    asOf: p.asOf || null, capped: !!p.capped};
+}
+
+function UsageChip({ usage, chip }) {
+  var c = chip || usageChip(usage);
+  return el('span', { className: 'rb-chip' + (c.absent ? ' rb-absent' : ''), title: c.title },
+    el('span', { className: 'k' }, 'usage'), c.text);
+}
+
+function PopularTile({ home, err }) {
+  var s = popularSummary(home && home.popular, err);
+  var body;
+  if (s.state === 'loading') body = el('div', { className: 'rb-absent' }, s.message);
+  else if (s.state === 'failed') body = el('div', { className: 'rb-err' }, s.message);
+  else if (s.state === 'none') body = el('div', { className: 'rb-absent' }, s.message);
+  else body = el(React.Fragment, null,
+    s.rows.length === 0 && el('div', { className: 'rb-absent' },
+      'No resource has a reads-per-day reading to rank by yet.'),
+    s.rows.length > 0 && el('ol', { className: 'rb-list', style: { gap: 7, paddingLeft: 18 } }, s.rows.map(function(r) {
+      var u = r.usage || {};
+      return el('li', { key: r.guid },
+        el('div', { className: 'rb-row', style: { gap: 6 } },
+          el(ResourceLink, { item: r }),
+          el('span', { className: 'rb-type' }, r.typeName),
+          el(UsageChip, { usage: u })),
+        el('div', { className: 'rb-note' },
+          (u.readsInWindow !== undefined ? u.readsInWindow : '\u2014') + ' reads in window \u00b7 ' +
+          (u.readersInWindow !== undefined ? u.readersInWindow : '\u2014') + ' readers in window \u00b7 last read ' +
+          (lastReadOf(u) ? fmtDate(lastReadOf(u)) : 'not recorded')));
+    })),
+    s.more > 0 && el('div', { className: 'rb-note', style: { marginTop: 6 } }, s.more + ' more ranked resource' + (s.more === 1 ? '' : 's') + ' not shown.'),
+    s.unranked.length > 0 && el('div', { className: 'rb-note', style: { marginTop: 6 },
+      title: s.unranked.map(function(r) { return (r.displayName || r.guid) + ': ' + usageChip(r.usage).text; }).join('\n') },
+      s.unranked.length + ' more ' + (s.unranked.length === 1 ? 'has' : 'have') + ' usage readings but no reads-per-day reading, so ' +
+      (s.unranked.length === 1 ? 'is' : 'are') + ' not ranked.'),
+    el('div', { className: 'rb-note', style: { marginTop: 6 } },
+      'As of ' + (s.asOf ? fmtDate(s.asOf) : 'an unrecorded time') + ' (end of the latest analysis window). Resources without readings are not measured and not ranked.' +
+      (s.capped ? ' The read stopped at its limit, so some measured resources may be missing.' : '')));
+  return el(Tile, { title: 'Popular', note: 'reads per day' }, body);
+}
+
 function FavouritesTile({ personaId }) {
   var _f = useState(null), favs = _f[0], setFavs = _f[1];
   var _e = useState(''), err = _e[0], setErr = _e[1];
@@ -1894,9 +2034,7 @@ function HomePage({ creds, personaId }) {
       'Search above, browse by tag, owner, source or collection, or start from what changed recently.'),
     el('div', { className: 'rb-grid' },
       el('div', null,
-        el(Tile, { title: 'Popular', note: 'by use' },
-          el('div', { className: 'rb-absent' }, (home && home.popular && home.popular.reason) || 'Popularity is not available yet.'),
-          el('div', { className: 'rb-note', style: { marginTop: 4 } }, 'Nothing is ranked by use until Egeria records it. Recently changed is below instead.')),
+        el(Boundary, { what: 'Popular tile' }, el(PopularTile, { home: home, err: err })),
         el(Tile, { title: 'Recently changed', note: 'newest first' },
           el('div', { className: 'rb-row', style: { gap: 6, marginBottom: 8 } },
             el('button', { className: 'rb-facet' + (peopleOnly ? ' on' : ''), onClick: function() { setPeopleOnly(true); } }, 'Changed by people'),
