@@ -30,11 +30,13 @@ from pathlib import Path
 try:
     from .layout_profile import Profile, Rule, compose_profiles, load_profile
     from . import manifests as mf
+    from . import grammar as gm
     from . import configuration as cfg
 except ImportError:                                   # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from layout_profile import Profile, Rule, compose_profiles, load_profile  # type: ignore
     import manifests as mf  # type: ignore
+    import grammar as gm  # type: ignore
     import configuration as cfg  # type: ignore
 
 UNCLASSIFIED = "unclassified"
@@ -994,6 +996,90 @@ class Recognizer:
             f.update(extra)
         return f
 
+    # ---- conformance (Phase 2, notebook 05) ----------------------------------------------------------------------------------
+    def conformance_finding(self, f: dict) -> dict:
+        """A conformance finding: kind structure | naming | content-type and a status. Same finding_id formula as every other finding (J6: from the grammar rule's defining profile, `r.origin`), with
+        path = the EXPECTED path for a `missing` one, so a missing file keeps its id across surveys."""
+        r = f["rule"]
+        out = {"finding_id": finding_id(self.p, r.id, f["path"], r.origin), "path": f["path"], "kind": f["kind"], "status": f["status"], "rule_id": r.id,
+               "basis": r.basis, "confidence": r.confidence, "evidence": r.evidence, "grain": "conformance", "profile_id": self.p.profile_id,
+               "profile_version": self.p.version}
+        if f.get("reason"):
+            out["reason"] = f["reason"]
+        for k in ("evidence_file", "evidence_field", "evidence_blob", "value", "note"):
+            if f.get(k) is not None:
+                out[k] = f[k]
+        return out
+
+    def content_conformance(self, present: set):
+        """B2 (NOTE-PHASE2 §2 row and §10): the fields of the closed list of content files, read ONLY at the scanned root (the dataset root), only when the
+        file is in the list and not hidden, and only with a blob source; under the manifest per-file cap, by the safe JSON parser. Returns
+        (findings, fields checked, read log, enabled). A file that is absent is a structure finding (required), never a content one."""
+        checks = self.p.content_checks
+        if not checks or self.blob_source is None:
+            return [], 0, [], False
+        found, checked, log = [], 0, []
+        for f in sorted({c.file for c in checks}):
+            if f not in present:
+                continue
+            mine = [c for c in checks if c.file == f]
+            unread = next(c for c in mine if c.field is None)
+            log.append(f)
+            data, blob, note = self.blob_source.read(f, mf.DEFAULT_MAX_FILE_BYTES)
+            if data is not None and isinstance(self.blob_source, mf.FileSource):
+                blob = hashlib.sha256(data).hexdigest()          # a non-git tree: the file's sha256 (NOTE-PHASE2 §10)
+            ev = {"evidence_file": f, "evidence_blob": blob}
+            doc, why = None, None
+            if data is None:
+                why = "skipped: size" if note == "size" else "not readable from the source"
+            else:
+                try:
+                    doc = mf.parse_json(data)
+                except mf.ManifestParseError as exc:
+                    why = f"parse_error: {exc}"
+                if doc is not None and not isinstance(doc, dict):
+                    doc, why = None, "parse_error: not a JSON object"
+            if doc is None:
+                checked += 1
+                found.append({"path": f, "kind": "content-type", "status": "unreadable", "rule": unread, "note": why, **ev})
+                continue
+            for c in (c for c in mine if c.field is not None):
+                checked += 1
+                status, value = c.judge(doc.get(c.field))
+                if status:
+                    found.append({"path": f, "kind": "content-type", "status": status, "rule": c, "evidence_field": c.field, "value": value,
+                                  **ev})
+        return found, checked, log, True
+
+    def conformance(self, paths: list) -> dict:
+        """Judge the tree (the files the profile does not hide) against the profile's grammars, required paths and closed sets (recognizer/grammar.py)."""
+        res = gm.evaluate(paths, self.p.path_grammar, self.p.name_grammar, self.p.required, self.p.allowed_only)
+        cfound, cchecked, clog, cenabled = self.content_conformance(set(paths))
+        self.content_reads = clog
+        found = [self.conformance_finding(f) for f in res.findings + cfound]
+        by: dict = {}
+        for f in found:
+            by.setdefault(f["kind"], {}).setdefault(f["status"], 0)
+            by[f["kind"]][f["status"]] += 1
+        checked = res.checked_entries + res.checked_required + cchecked
+        extra = {"content_reading": {"enabled": cenabled, "files_read": clog}} if self.p.content_checks else {}
+        cats = {r.category for r in self.p.required}
+        if cats - {"standard"}:                                   # B2: the standard's items apart from a study's own consistency checks
+            rule_cat = {r.id: r.category for r in self.p.required}
+            per: dict = {}
+            std_checked = checked - sum(v for k, v in res.checked_by_category.items() if k != "standard")
+            for cat in sorted(cats | {"standard"}):
+                n = std_checked if cat == "standard" else res.checked_by_category.get(cat, 0)
+                bad = sum(1 for f in found if rule_cat.get(f["rule_id"], "standard") == cat)
+                per[cat] = {"checked": n, "findings": bad, "score": round((n - bad) / n, 6) if n else 1.0}
+            extra["by_category"] = per
+            for f in found:
+                f["category"] = rule_cat.get(f["rule_id"], "standard")
+        return {"_findings": found, **extra, "checked": {"entries": res.checked_entries, "required": res.checked_required, "fields": cchecked, "total": checked},
+                "conformant": checked - len(found), "findings": {k: dict(sorted(v.items())) for k, v in sorted(by.items())}, "findings_total": len(found),
+                "score": round((checked - len(found)) / checked, 6) if checked else 1.0,
+                "not_checked": {"files": res.not_checked_files, "roots": sorted(res.not_checked, key=lambda x: (x["path"], x["reason"]))}}
+
     # ---- the run --------------------------------------------------------------------------------------------------------
     def candidate_copies(self, path_list: Path, kinds: tuple) -> list:
         """NAMES-ONLY report (not a rule): group the components of the given kinds whose sorted sets of relative file names are identical. The
@@ -1078,12 +1164,16 @@ class Recognizer:
             cell[0] += 1
             cell[1] += size
 
+        conformance = bool(self.p.allowed_only or self.p.required or self.p.content_checks)   # Phase 2: only a profile that declares conformance
+        conf_paths: list = []                                          # the files conformance judges: every file the profile does not hide
         fj = open(out / "findings-files.jsonl", "w", encoding="utf-8", newline="\n") if per_file else None
         try:
             for path, size in read_rows(path_list):
                 total_files += 1
                 total_bytes += size
                 rule, node, grain = self.classify(path)
+                if conformance and not (rule is not None and rule.relevance == "hidden"):
+                    conf_paths.append(path)
                 if rule is None:
                     bump(by_role, UNCLASSIFIED, size)
                     bump(by_rel, UNCLASSIFIED, size)
@@ -1136,6 +1226,9 @@ class Recognizer:
             findings.append(f)
         for fpath, (rule, site, info) in self.file_components.items():
             findings.append(self.finding(rule, fpath, "component", {**info, "part_of": site or "."}))
+        conf = self.conformance(conf_paths) if conformance else None
+        if conf is not None:
+            findings.extend(conf.pop("_findings"))
         findings.sort(key=lambda f: (f["path"], f["rule_id"]))
         with open(out / "findings.jsonl", "w", encoding="utf-8", newline="\n") as fh:
             for f in findings:
@@ -1145,6 +1238,8 @@ class Recognizer:
             groups = self.candidate_copies(path_list, tuple(copies_of))
             (out / "candidate-copies.json").write_text(json.dumps({"kinds": sorted(copies_of), "groups": groups}, indent=2, sort_keys=True) + "\n",
                                                        encoding="utf-8")
+        if conf is not None and self.p.content_checks:              # the content files conformance opened (at most the closed list, at the root)
+            (out / "content-reads.txt").write_text("".join(p + "\n" for p in self.content_reads), encoding="utf-8")
         if self.reading is not None:                                # names only: the paths opened, in order (evidence for the read log)
             (out / "manifest-reads.txt").write_text("".join(p + "\n" for p in self.reading.log), encoding="utf-8")
         top_components.sort()
@@ -1183,6 +1278,8 @@ class Recognizer:
                 classes["manifest_reading"]["docs_sections"] = dict(self.docs_stats)
             if self.reading is not None:
                 classes["manifest_reading"].update(self.reading.stats.as_dict())
+        if conf is not None:
+            classes["conformance"] = conf
         if self.p.file_roles:                                      # the file-role layer: `other` is classified, and reported beside the target
             classes["shares"]["other_files"] = share(by_role.get("other", [0, 0])[0], total_files)
             classes["shares"]["other_bytes"] = share(by_role.get("other", [0, 0])[1], total_bytes)

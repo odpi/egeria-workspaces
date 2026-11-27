@@ -35,7 +35,7 @@ COMPONENT_SCOPES = ("within", "root")                  # file rules only: under 
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
 TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar",
-            "lists", "disable", "settings")
+            "required", "allowed_only", "content_checks", "lists", "disable", "settings")   # required, allowed_only, content_checks: conformance (recognizer/grammar.py, Phase 2 notebook 05)
 LIST_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")                     # J0: a named list (`lists:`), referred to as `$name` (a whole value or list element) or `{$name}` in a regex
 LIST_REF = re.compile(r"^\$([a-z0-9][a-z0-9-]*)$")
 LIST_INTERP = re.compile(r"\{\$([a-z0-9][a-z0-9-]*)\}")
@@ -57,6 +57,14 @@ SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 COMPOSITE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]*(\+[a-z0-9][a-z0-9._-]*)+$")      # `a+b`: a composition made at run time, never a file name
 RULE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+CONFORMANCE_KINDS = ("structure", "naming", "content-type")   # the `kind` of a CONFORMANCE finding (grain conformance); never a component or role kind
+
+
+def _not_conformance_kind(where: str, kind) -> None:
+    if kind in CONFORMANCE_KINDS:
+        raise ProfileError(f"{where}: kind {kind!r} is reserved for conformance findings (structure, naming, content-type); a component or role kind needs another name")
 
 
 class ProfileError(ValueError):
@@ -204,8 +212,11 @@ class Profile:
     manifest_reading: ManifestReading | None = None
     file_roles: tuple = ()                       # the FILE-ROLE layer: path rules that give a file a role only where no rule above claimed it
     extends: tuple = ()
-    path_grammar: tuple = ()
-    name_grammar: tuple = ()
+    path_grammar: tuple = ()                     # grammar.PathPattern, the child's first (conformance; empty in every Phase 1 profile)
+    name_grammar: tuple = ()                     # grammar.NameGrammar
+    required: tuple = ()                         # grammar.Required
+    allowed_only: tuple = ()                     # grammar.AllowedOnly
+    content_checks: tuple = ()                   # grammar.ContentCheck (only dataset_description.json, only under bids-dataset)
     composed_of: tuple = ()                      # ((profile_id, version), ...) in the order their rules are checked
     lists: dict = field(default_factory=dict)    # J0: the named lists this profile sees (its own and those of the profiles it extends): name -> tuple of strings
     disabled: tuple = ()                         # J1: inherited rule ids this profile (and the profiles it extends) removed with `disable:`
@@ -410,6 +421,7 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
     evidence = raw["evidence"]
     if not isinstance(evidence, str) or not evidence.strip():
         raise ProfileError(f"{where}: evidence must be a non-empty string")
+    _not_conformance_kind(where, assign.get("kind"))
 
     dir_keys = [k for k in DIR_ONLY_KEYS if k in match]
     file_keys = [k for k in FILE_ONLY_KEYS if k in match]
@@ -615,6 +627,7 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
         rel = rel_map.get(raw["role"])
         if rel is None:
             raise ProfileError(f"{w} {which}: role {raw['role']!r} has no relevance")
+        _not_conformance_kind(f"{w} {which}", raw["kind"])
         for key, allowed in (("basis", BASES), ("confidence", CONFIDENCES)):
             if raw[key] not in allowed:
                 raise ProfileError(f"{w} {which}: {key} {raw[key]!r} is not one of {list(allowed)}")
@@ -652,16 +665,36 @@ def _merge_reading(own, base):
                    max_total_bytes=min(own.max_total_bytes, base.max_total_bytes), **kw)
 
 
-def _grammar(where: str, items: Any, must: tuple) -> tuple:
-    if items is None:
+def _grammar(source: str, key: str, items: Any, origin: str) -> tuple:
+    """Compile one of the conformance lists (path_grammar, name_grammar, required, allowed_only); see recognizer/grammar.py."""
+    if items is None or items == []:
         return ()
+    gm = _gm()
     if not isinstance(items, list):
-        raise ProfileError(f"{where}: expected a list")
+        raise ProfileError(f"{source} {key}: expected a list")
+    make = {"path_grammar": gm.compile_path_grammar, "name_grammar": gm.compile_name_grammar, "required": gm.compile_required,
+            "content_checks": gm.compile_content_check}.get(key)
     out = []
     for n, item in enumerate(items):
-        _check_keys(f"{where}[{n}]", item, must, must)
-        out.append(dict(item))
+        try:
+            if make is None:
+                out.append(gm.compile_allowed_only(f"{source} {key}[{n}]", item, origin, BASES, CONFIDENCES, RULE_ID, glob_to_regex))
+            else:
+                out.append(make(f"{source} {key}[{n}]", item, origin, BASES, CONFIDENCES, RULE_ID))
+        except gm.GrammarError as exc:
+            raise ProfileError(str(exc)) from exc
     return tuple(out)
+
+
+GRAMMAR_LISTS = ("path_grammar", "name_grammar", "required", "allowed_only", "content_checks")
+
+
+def _gm():
+    try:
+        from . import grammar
+    except ImportError:                                  # run as a script (recognizer/ on sys.path)
+        import grammar  # type: ignore
+    return grammar
 
 
 def _structural(where: str, items: Any, origin: str = "") -> tuple:
@@ -683,6 +716,7 @@ def _structural(where: str, items: Any, origin: str = "") -> tuple:
                 raise ProfileError(f"{w}: op {item['op']!r} needs a kind")
         elif "kind" in item:
             raise ProfileError(f"{w}: op 'sibling-manifests-top-level' takes no kind")
+        _not_conformance_kind(w, item.get("kind"))
         if item["op"] == "mostly-extension-folder":
             exts = item.get("extensions")
             share = item.get("share")
@@ -885,8 +919,8 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     all_roles = list(roles)
     merged_rel = dict(rel_map)
     composed = [(pid, version)]
-    path_grammar = _grammar(f"{source} path_grammar", doc.get("path_grammar"), ("id", "pattern", "yields"))
-    name_grammar = _grammar(f"{source} name_grammar", doc.get("name_grammar"), ("id", "pattern", "yields"))
+    gram_own = {k: _grammar(source, k, doc.get(k), pid) for k in GRAMMAR_LISTS}
+    gram = {k: list(v) for k, v in gram_own.items()}
     structural_own = _structural(source, doc.get("structural_rules"), pid)
     structural = list(structural_own)
     inh_rules, inh_fr = [], []
@@ -901,6 +935,8 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         inh_fr.extend(base.all_file_roles or base.file_roles)
         mreading = _merge_reading(mreading, base.manifest_reading)
         structural.extend(base.structural)
+        for k in GRAMMAR_LISTS:
+            gram[k].extend(getattr(base, k))
         composed.extend(base.composed_of)
         inh_disabled.extend(base.disabled)
         inh_replaced.extend(base.replaced)
@@ -994,6 +1030,29 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     structural = uniq
     if seen_s & set(seen):
         raise ProfileError(f"{source}: structural rule ids must differ from rule ids")
+    gram_ids = [x.id for k in GRAMMAR_LISTS for x in gram_own[k]]
+    if len(set(gram_ids)) != len(gram_ids):
+        raise ProfileError(f"{source}: grammar, required and allowed_only ids must be unique")
+    for k in GRAMMAR_LISTS:                              # the same dedupe as for rules: a profile reached twice contributes once; a real clash is an error
+        out, by = [], {}
+        for x in gram[k]:
+            if x.id in by:
+                if by[x.id] == x.origin:
+                    continue
+                raise ProfileError(f"{source}: {k} id {x.id!r} is used twice (in {by[x.id]!r} and {x.origin!r})")
+            by[x.id] = x.origin
+            out.append(x)
+        gram[k] = tuple(out)
+    all_gram = [x.id for k in GRAMMAR_LISTS for x in gram[k]]
+    if len(set(all_gram)) != len(all_gram) or set(all_gram) & (set(seen) | seen_s):
+        raise ProfileError(f"{source}: grammar, required and allowed_only ids must be unique and differ from rule ids (a finding id is made from the id)")
+    if any(gram[k] for k in GRAMMAR_LISTS):
+        gm = _gm()
+        try:
+            gm.check_references(source, gram["path_grammar"], gram["name_grammar"], gram["required"], gram["allowed_only"])
+            gm.check_content(source, gram["content_checks"])
+        except gm.GrammarError as exc:
+            raise ProfileError(str(exc)) from exc
     composed = list(dict.fromkeys(composed))
     # J3b (D-J4): an OVERLAY may not widen what is read. The shipped profiles of the chain fix the readers (and so the manifest names, the fields and the content
     # reads they make), the fields already skipped and the caps; a chain with an overlay must stay within them.
@@ -1025,7 +1084,8 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     chain = [(pid, shipped)] + [x for b in bases for x in b.chain_shipped]
     chain = list(dict.fromkeys(chain))
     return Profile(profile_id=pid, version=version, status=doc["status"], applies_to=doc["applies_to"], roles=tuple(all_roles),
-                   relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), manifest_reading=mreading, extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
+                   relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), manifest_reading=mreading, extends=tuple(extends), path_grammar=gram["path_grammar"], name_grammar=gram["name_grammar"],
+                   required=gram["required"], allowed_only=gram["allowed_only"], content_checks=gram["content_checks"],
                    composed_of=tuple(composed), structural=tuple(structural), lists=lists,
                    disabled=tuple(dict.fromkeys(inh_disabled + disable)), replaced=tuple(dict.fromkeys(inh_replaced + replaced)),
                    effective_order=tuple(r.id for r in rules) + tuple(r.id for r in fr_out),

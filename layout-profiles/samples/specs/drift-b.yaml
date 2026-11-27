@@ -1,0 +1,6 @@
+# A second builder-written spec (B3): a small drift, three deviations, one of them a content-type one.
+mutations:
+  - class: wrong-case
+    variant: dir
+  - class: unexpected-file-in-modality-folder
+  - class: malformed-json

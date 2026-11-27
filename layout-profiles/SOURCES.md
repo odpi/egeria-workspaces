@@ -21,3 +21,14 @@ Nothing here is copied from a repository: profiles are written from conventions,
 - N6 (Phase 1c): the workspaces repository at commit 6b040618 and egeria-python at 98837e05 (the dogfood trees; not held out, and known to the builder) were listed by names and sizes and their compose YAML read from the git object database; their answer keys were used only through the scorer, as a fit.
 - Phase 1d (D5): the kafka repository at commit c4cddf09 (a spent held-out repository) was listed by names and sizes and its Gradle settings read through the git object database, only to re-score the rules as a fit against its key (b1bdaf54).
 - Phase 1e (E2): the spring-boot repository at commit f580d002 (spent after D6; its path list and key a1aaf8a9 were used to re-score the E1 rule as a fit), kafka (c4cddf09, spent, key b1bdaf54), and the tune set and dogfood trees as before, by names and sizes with manifests read from the git object database; no held-out tree or key was opened.
+- Phase 2 notebook 05 (B0): `samples/bids_gen.py` writes synthetic BIDS-shaped trees (empty data files, `{}` sidecars, a three-field `dataset_description.json` it writes itself, License CC0); nothing is copied from a dataset.
+- Phase 2 notebook 05 (B2), the specification: `profiles/bids-dataset.yaml` 0.1.0 (0.1.1 since B6) restates facts (entity names and order, datatype folders, suffixes, the
+  dataset_description.json fields) from the Brain Imaging Data Structure (BIDS) specification v1.11.2, https://bids-specification.readthedocs.io/en/v1.11.2/,
+  by the BIDS contributors, licensed CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/). No text of the specification is copied; the version, URL and
+  licence were verified by the Architect on 2026-11-27 (URL live; repository licence CC-BY-4.0; release v1.11.2 published 2026-09-29).
+- Phase 2 notebook 05 (B2), the dataset: ds000117 ("Multisubject, multimodal face processing", Wakeman, DG and Henson, RN, as listed in its
+  dataset_description.json) from bids-standard/bids-examples @ 5e00d47b6f1db106dda1b776d5243eb41b4cb95b. Licence CC0, as stated in its
+  dataset_description.json (the repository has no repo-level licence). Copied: the file list (names and sizes of the 2,448 blobs under `ds000117/`, from
+  the git tree API, as `samples/ds000117/paths.tsv`) and `dataset_description.json` verbatim (blob 40598363). Nothing else: no sidecar, table, text,
+  derivative or data file. Fetched once at build time; nothing is fetched at run time.
+- The BIDS validator (bids-validator, MIT) is a reference only: it is not installed, run or copied here (the Architect runs it once, offline, after B4).

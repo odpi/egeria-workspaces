@@ -33,7 +33,8 @@ Outputs in OUTDIR, byte-identical for the same input and profile (checked on the
 
 See `profiles/generic-relevance.yaml` and `recognizer/layout_profile.py`. In short: `profile_id`, `version` (semver; a rule change bumps it),
 `status` (proposed | confirmed | retired), `applies_to`, optional `extends: [a, b]` (the child's rules first, then a's, then b's), `roles`,
-`relevance` (role -> primary | supporting | hidden), ordered `rules`, and schema-only `path_grammar` / `name_grammar`.
+`relevance` (role -> primary | supporting | hidden), ordered `rules`, and the conformance lists `path_grammar`, `name_grammar`, `required` and
+`allowed_only` (schema-only until Phase 2; see B1 below).
 
 A rule: `id`, `match`, `assign {role, kind?, relevance?}`, `grain`, `basis`, `confidence`, `evidence`. The loader rejects: an unknown key at any
 level, an unknown role or relevance, a role with no relevance, a duplicate rule id, a rule without evidence, a subtree rule that cannot say
@@ -662,6 +663,184 @@ Cause (Dan's ruling): `R-conv-scripts` made every top-level `scripts` folder a c
 
 Recall changes nowhere; tune-set recall stays 1.00 (trellis, superset, datahub) against the current keys. `scripts` leaves the candidate list in every repository where it was one (dagster, fastapi, btorch, ideavim, trellis, superset, egeria-python), and so do ideavim's `scripts-ts` and its `src`. The keyed `config` components (kafka, egeria-python, trellis) stay candidates; the three `config` folders that leave (dagster, motif, test-retry-gradle-plugin) hold only linter configuration. No `tools/src` (or other src below a tooling folder) was a candidate in these repositories, so the `parent_not_role` effect shows only on ideavim. File roles do not change anywhere (`file_scope`): no file-role finding and no per-role or per-rule count in `classes.json` moves; the only other changes are the component counts, the profile version (0.9.0) and the copied evidence text of the changed rules. Two runs of the new code give byte-identical outputs (119 of 119 files). The NB05 `bids-dataset` outputs (seeds 1 to 3 clean, drift-a and drift-b, and ds000117) are byte-identical with and without the Phase 1g and 1h profile and recognizer hunks applied to the NB05 head.
 
+## Phase 2, notebook 05, B0: a seeded BIDS-shaped generator (`samples/bids_gen.py`)
+
+Command: `python samples/bids_gen.py --seed 1 --subjects 3 --sessions 2 --out OUT [--mutations SPEC.yaml]`. `OUT` must be absent or empty.
+
+It writes `OUT/dataset/` (the tree), `OUT/paths.tsv` (`path<TAB>size`, sorted, the same as `recognizer/listpaths.py` gives) and `OUT/truth.jsonl`
+(one line per injected deviation: path, kind, status, rule, class; empty for a clean tree).
+
+The tree holds, per subject (and per session when `--sessions` > 0), the modality folders `anat`, `func`, `dwi` and `fmap`, and the top-level files
+`dataset_description.json`, `README`, `participants.tsv` and `CHANGES`. Data files are empty and sidecars are `{}`. `dataset_description.json` has exactly
+three fields: `BIDSVersion` (1.11.2), `Name` and `License` (`CC0`). Labels are synthetic (`sub-01`, `sub-02`, ...). No real data.
+
+The seed picks the tasks, runs, echoes, an acquisition label, the field-map layout, the session labels and the mutation targets. The same seed, counts
+and spec give a byte-identical tree and truth (tested).
+
+A spec is `mutations:`, a list of `{class, variant?, count?, file?}`. Mutations are applied in a fixed class order, whatever the spec order. The
+closed list of 17 classes:
+
+| class | kind/status | expected rule |
+|---|---|---|
+| missing-top-level-file | structure/missing | RQ-dataset-description, RQ-readme, RQ-participants or RQ-changes |
+| missing-modality-folder | structure/missing | RQ-datatype-ses (RQ-datatype without sessions) |
+| unexpected-top-level-folder | structure/unexpected | AO-root |
+| unexpected-file-in-modality-folder | structure/unexpected | AO-datatype |
+| entity-order (`task-x_sub-01_...`) | naming/misnamed | NG-bids |
+| unknown-entity-key | naming/misnamed | NG-bids |
+| illegal-label-character (`sub-0_1`, `sub-01!`) | naming/misnamed | PG-subject |
+| wrong-case, variant dir (`Sub-01`) or file (`T1W`) | naming/misnamed | PG-subject or NG-bids |
+| wrong-extension (`.nii.zip` for `.nii.gz`; BIDS allows `.nii.gz` and `.nii`) | naming/misnamed | NG-bids |
+| session-inconsistency | structure/missing | RQ-session |
+| stray-name (a `final_v2`-style copy) | naming/misnamed | NG-bids |
+| bidsversion-missing, license-missing | content-type/missing-field | CT-bidsversion, CT-license |
+| bidsversion-invalid, license-empty, name-empty | content-type/invalid-value | CT-bidsversion, CT-license, CT-name |
+| malformed-json | content-type/unreadable | CT-unreadable |
+
+A `missing` deviation's path is the EXPECTED path. A subject-level mutation (illegal-label-character, wrong-case dir, session-inconsistency,
+missing-modality-folder) uses a whole subject, and one subject always stays untouched as a witness, so every folder required per subject is still seen
+somewhere. Conflicts (two content mutations of one field, malformed-json with another content mutation, too few subjects or sessions) are refused.
+Rule ids are those of `profiles/bids-dataset.yaml` (B2).
+
+## Phase 2, notebook 05, B1: grammars, required paths and closed sets are evaluated (`recognizer/grammar.py`)
+
+`path_grammar` and `name_grammar` are no longer schema-only, and two new top-level keys join them: `required` and `allowed_only`. Every
+Phase 1 profile has none of them, so its outputs are byte-identical to ef5e2b14 (checked on the tune set and the dogfood trees, every profile,
+with and without manifest reading). A profile that declares `allowed_only` or `required` makes the recognizer judge the tree (every file the
+profile does not hide) and add CONFORMANCE findings to `findings.jsonl` and a `conformance` block to `classes.json`. Names only: no file is opened.
+
+Every item carries `id`, `basis`, `confidence` and `evidence` (and may carry `tuned_on`); the loader rejects an unknown key at any level, a reference
+to an id that does not exist, and an id used twice or equal to a rule id (the id goes into the finding id). Items compose through `extends` as rules do.
+
+- **`path_grammar`**: `{id, pattern, tokens, yields?}`. `pattern` is a relative directory path with named tokens, `sub-{sub}/ses-{ses}/{datatype}`;
+  `tokens` maps each token to `{regex: R}` (a full match) or `{values: [..]}` (one of them, exactly). Every token is defined and used once.
+- **`name_grammar`**: `{id, entities, label, suffixes, extensions}` for FILE names `<key>-<label>[_<key>-<label>...]_<suffix><extension>`.
+  `entities` is the ORDERED list of keys, each `{key, label?, token?, required_for?}`: `label` overrides the grammar's `label` regex; `token` ties the
+  entity to a token of the folder's pattern (present, and equal, exactly when the folder has that token: `sub-01_...` inside `sub-01/`); `required_for`
+  lists the suffixes that need the entity. `suffixes` is a list, or `{by_token: datatype, values: {anat: [T1w], ...}}` (`by_token` names the folder token the list depends on).
+  `extensions` is a list, or `{default: [...], by_suffix: {events: [.tsv]}}` (`by_suffix` overrides the default for a suffix); the longest listed extension is taken (`.nii.gz` before `.gz`).
+- **`required`**: a literal `{path}` that must exist, or `{of: <path_grammar id>, for_each: [tokens]}`: for each value of the `for_each` tokens seen in
+  the tree, every combination of the pattern's other tokens seen in it must exist (every subject has every session, and every datatype folder of it).
+- **`allowed_only`**: `{under, dirs?, files?, name_grammar?, not_checked?}`: a CLOSED set below the directories `under` names (`.` for the root, or
+  path_grammar ids): the sub-directories it allows (path_grammar ids), the files (exact names, and name_grammar ids), and `not_checked` globs of names
+  that are counted but never judged (with everything below them).
+
+**Judging an entry** of a directory an `allowed_only` item covers, in this order: it matches an allowed pattern or name exactly (conformant; a
+directory takes the pattern's tokens and is looked into); it matches a `not_checked` glob (not checked); it has the SHAPE of an allowed item (a
+pattern with its literals compared ignoring case and any text for a regex token, a value token ignoring case; for a file, a key of the grammar
+followed by `-`, or one of its suffixes ignoring case, among its `_` parts; an allowed exact name ignoring case): `naming`/`misnamed`, rule = that
+item, with a short `reason` (`entity-order`, `unknown-entity`, `label`, `case`, `suffix`, `extension`, `missing-entity` ...); otherwise
+`structure`/`unexpected`, rule = the first `allowed_only` item that covers the directory. Nothing below a misnamed or unexpected directory is judged.
+A `required` path that is absent is `structure`/`missing`, and the finding's path is the EXPECTED path. It is not reported when its parent folder is
+absent too (only the shallowest absence is reported), nor when a sibling that differs from it only in case was reported misnamed (one deviation).
+A folder that no `allowed_only` item covers is not checked.
+
+**Findings.** A conformance finding has `kind` (`structure`, `naming` or `content-type`) and `status` (`missing` or `unexpected`; `misnamed`;
+`missing-field`, `invalid-value` or `unreadable`), `grain: conformance`, the item's id as `rule_id`, its basis, confidence and evidence, and
+`reason` for a misnamed one. It has no role or relevance (the `kind` of a component finding is unchanged). `finding_id` keeps its formula,
+`sha256(profile_id@major | rule_id | path)[:16]`, so a missing file keeps its id across surveys. `content-type` (B2) is in the enum from the start.
+**`classes.json` `conformance`**: checked items (entries judged plus required paths expected), conformant items, findings by kind and status, the
+score (conformant / checked) and the not-checked files with their roots and reasons (`not-checked`, `below-finding`, `no-closed-set`).
+
+## Phase 2, notebook 05, B2 and B6: the `bids-dataset` profile 0.1.1 and the `dataset_description.json` content checks
+
+`profiles/bids-dataset.yaml` (extends `generic-relevance`, so `.git` and the like stay hidden and are not judged) declares a SUBSET of BIDS v1.11.2
+(SOURCES.md): the datatypes `anat`, `func`, `dwi` and `fmap`; the entities `sub`, `ses`, `task`, `acq`, `dir`, `run` and `echo` in the specification's
+order; the suffixes per datatype in the profile; NIfTI data as `.nii.gz` or `.nii`; the top-level files; and three content checks. `sub-emptyroom`, the
+specification's subject for MEG empty-room recordings, is outside the subset and not checked. Its rule ids are the ones `samples/bids_gen.py` puts
+in `truth.jsonl`: `PG-subject`, `PG-session`, `PG-datatype(-ses)`, `NG-bids`, `RQ-*`, `AO-root`, `AO-subject`, `AO-session`, `AO-datatype` and `CT-*`.
+`tuned_on: "generated (bids_gen seeds 1-3)"`; no rule names a real dataset. Two facts were corrected after the Architect's read-back, from the
+specification's own text (`.nii` is BIDS; `sub-emptyroom` is MEG's), and carry `tuned_on: "BIDS spec; noticed on ds000117 (reported-only sample)"`.
+The scanned root is the dataset root.
+
+**Study consistency apart from the standard.** A `required` item may carry `category: study-consistency` (default `standard`). `RQ-session`,
+`RQ-datatype` and `RQ-datatype-ses` (every subject has every session, and every datatype folder, seen in the dataset) are study-consistency
+checks: a regular study's protocol, which BIDS itself does not require. So are (0.1.1) `RQ-readme`, `RQ-participants` and `RQ-changes`, files this
+profile requires that BIDS only recommends or allows. When a profile has such items, the `conformance` block of `classes.json`
+has `by_category` (checked items, findings and score per category; entries and content fields count as `standard`) and each conformance finding
+carries its `category`, so a report can say "BIDS 69%, study consistency 94%".
+
+**`kind` takes its vocabulary from the grain.** For grain `conformance` it is one of `structure`, `naming` or `content-type` (with a `status`). For
+component and role findings it stays the component or role kind, as before. The loader refuses a rule, manifest rule or structural rule whose
+kind is `structure`, `naming` or `content-type`, so the two vocabularies cannot be confused.
+
+**Content checks** (top-level key `content_checks`; NOTE-PHASE2 §2 row and §10). Only `dataset_description.json`, only its fields `BIDSVersion`,
+`Name` and `License`, only at the scanned root, only under `bids-dataset` (the loader refuses any other file, field or profile), and only when a
+blob source is given (`--blobs-dir DIR` or `--blobs-git REPO REV`); without one, `classes.json` says `content_reading.enabled: false`. One item per
+field (`{id, file, field, check: {regex: R} | {non_empty: true}}`) and one `unreadable: true` item. The file is read under the 256 KiB cap by the
+safe JSON parser (time limit, depth limit). Statuses: `missing-field` (absent or not a string), `invalid-value` (fails the check, or is longer than
+256 characters; the value is stored only up to 256 characters), `unreadable` (parse error, not a JSON object, over the cap; no field is checked
+then). The checks: `BIDSVersion` matches `\d+\.\d+\.\d+`, `Name` and `License` are not empty. Findings carry `basis: manifest-content`,
+`evidence_file`, `evidence_field` and `evidence_blob` (the git blob sha, or the file's sha256 for a non-git tree). No other field is copied
+anywhere (tested). A missing `dataset_description.json` is a `structure`/`missing` finding only. Each checked field counts as one checked item;
+an unreadable file counts as one. `content-reads.txt` lists the files opened.
+
+Results: clean trees (seeds 1-3 and more, with and without sessions) have 0 findings and score 1.0. Each of the 17 classes injected alone, and
+all of them together, is found exactly: the conformance findings equal `truth.jsonl` by path, kind, status and rule, with nothing else.
+
+**ds000117** (bids-examples @ 5e00d47b, names and sizes only plus its `dataset_description.json`; reported, NOT scored). On `samples/ds000117/paths.tsv`
+with `--blobs-dir samples/ds000117`, under 0.1.1: 2,448 files; 1,792 not checked (derivatives, stimuli, sub-emptyroom, meg, beh, top-level,
+subject-level and session-level sidecars and tables, scans files); 866 checked items, 5 findings, score 0.994 (standard 1.0 on 767 items, 0 findings;
+study consistency 0.949 on 99, 5 findings). The content checks pass (BIDSVersion 1.8.0, License CC0). The 5 `missing` are `dwi` folders absent for
+some subjects: honest study-consistency findings. **B6 (0.1.1)** closed three gaps the Architect found on 0.1.0, which had 882 checked items, 245
+findings, score 0.722 (standard 0.695 on 786 items, 240 findings; study consistency 0.948 on 96, 5 findings): `RQ-participants` and `RQ-changes`
+(BIDS RECOMMENDS participants.tsv and makes CHANGES OPTIONAL) are now `study-consistency`; `FLASH` (deprecated in BIDS 1.11.2 but still valid) is an
+`anat` suffix (was 224 `suffix` findings); and `*.tsv` is not checked at subject and session level, as `*.json` was (inheritance; was 16 `unexpected` MEG
+`channels.tsv` files at session level). B6.1 made `RQ-readme` study consistency too (BIDS RECOMMENDS README), which moves one checked
+item from standard to study consistency and changes no finding. Before the read-back fixes the figures were 423 findings, score 0.589 (47 `.nii` field
+maps, and 130 + 1 + its file from `sub-emptyroom`). The Architect's offline bids-validator run compares them after B4.
+
+**Known limits** (what the subset leaves out or judges more strictly than BIDS):
+- `derivatives/`, `sourcedata/`, `code/`, `stimuli/` and `phenotype/` are not checked (only counted).
+- Inheritance is not modelled: top-level, subject-level and session-level sidecars and tables (`*.json`, `*.tsv`) are not checked. Inheritance applies at subject level too (a dataset without sessions keeps its inherited sidecars and tables in the subject folder), so AO-subject leaves `*.tsv` not checked as AO-session does.
+- Sidecar content, `participants.tsv` and every data file are never read; only `BIDSVersion`, `Name` and `License` of the root `dataset_description.json` are read.
+- Other datatypes (meg, eeg, ieeg, beh, pet, perf, micr, motion, mrs, nirs) are not checked; physio and stim recordings are not checked.
+- Only the entities sub, ses, task, acq, dir, run and echo; any other BIDS entity (ce, rec, mod, part, ...) is reported as `unknown-entity`.
+- Only the suffixes listed per datatype; others, such as T2starw, are reported as `suffix`.
+- Any listed entity may appear with any suffix; per-suffix entity rules beyond `task` for bold, sbref and events are not checked.
+- README, participants.tsv and CHANGES are required here; BIDS 1.11.2 recommends the first two and makes CHANGES optional. All three are scored as study consistency (0.1.1). README.md, README.rst and README.txt are allowed but do not satisfy the README requirement.
+- RQ-session, RQ-datatype and RQ-datatype-ses expect a regular study (every subject has every session and datatype folder seen); they are study-consistency checks, scored apart, and a study whose subjects legitimately differ will have findings there.
+- Session-level files of datatypes outside the subset other than sidecars and tables (`*.json`, `*.tsv`), such as `*_physio.tsv.gz`, are reported `unexpected`.
+- The License value is not checked against a list in v0.
+- `.bidsignore` is not read.
+
+## Phase 2, notebook 05, B3: the conformance report and drift (`recognizer/conformance.py`, `recognizer/drift.py`)
+
+```
+python -m recognizer.conformance OUTDIR              # writes OUTDIR/conformance.json and a "Conformance" section of OUTDIR/report.md
+python -m recognizer.drift OLD_OUTDIR NEW_OUTDIR     # writes NEW_OUTDIR/drift.json (or --out) and a "Drift" section of NEW_OUTDIR/report.md
+```
+Both read only the outputs of a survey (`findings.jsonl`, `classes.json`), never the tree. Each replaces its own marked section of `report.md`, so
+running them again changes no byte.
+
+**`conformance.json`**: the profile, the score (conformant checked items / checked items), the checked items (entries, required paths, content
+fields), the findings by kind and by kind and status, the not-checked files and roots, what content was read, and the conformance findings
+(id, path, kind, status, rule, reason). The headline is `97% conformant; 12 findings` (the percentage is floored, so a tree with a finding never
+shows 100%). It refuses a survey whose profile declares no conformance.
+
+**`drift.json`**: the CONFORMANCE findings of the two surveys compared by `finding_id`: `new` (in NEW only), `resolved` (in OLD only) and `unchanged`
+(in both; an unchanged id whose status or reason changed, such as a field that went from `invalid-value` to `missing-field`, is marked `changed` with
+the old status), with counts. A missing file keeps its id, so it stays `unchanged` until it is put back. The two surveys must use the same profile id
+and major version (otherwise the ids are not comparable and drift refuses). Headline: `3 new since last survey; 0 resolved; 0 unchanged`.
+
+Results (tests, seeds 1-3, the builder-written specs `samples/specs/drift-a.yaml` (13 deviations) and `drift-b.yaml` (3)): two surveys of the same
+tree have 0 new and 0 resolved and byte-identical outputs; clean to mutated gives `new` = exactly the truth set; mutated to fixed back gives
+`resolved` = the same set, with the same ids. Where the survey has `by_category`, `conformance.json` carries it and the report section gives the
+score per category.
+
+## Phase 2, notebook 05, B4: the notebook (`coco-workbooks/7. layout-semantics/05 conformance-and-drift.ipynb`)
+
+The Coco pattern, local only (decision 4(a)): generate a clean tree (seed 1, 6 subjects, 2 sessions), survey it (100% conformant; 0 findings),
+inject `samples/specs/drift-a.yaml`, survey again (95% conformant; 13 findings; BIDS and study consistency scored apart), report drift (13 new since
+last survey), answer the UC6 questions from the stored `conformance.json` and `drift.json`, check the answer against `truth.jsonl` (equal), fix the tree
+back (13 resolved, same ids), and survey the ds000117 file list (reported, not scored). The Resource Explorer, Portal and Egeria cells are marked
+"Phase 3 — not run" and do nothing. "Over the allowed count" is answered "not checked in v0": the profile has no count rules.
+
+`tests/test_notebook05.py` runs the notebook's code cells top to bottom in a fresh interpreter with the network blocked (well under 2 minutes), and
+checks that the outputs are cleared, that no absolute or local path is in it, that it imports only the standard library, PyYAML and this folder's
+code, and that the Phase 3 cells are marked. It works from the notebook's own folder in a checkout; the work folder is a temporary folder, removed
+at the end.
+
 ## Phase 1i (I1, I1-G, I1b, I2, I3, I4): internal test packages are not components; more test-folder names; a docs folder under src/ (`code-repo-conventions` 0.10.0, `code-repo` 0.5.0)
 
 Cause (Dan's ruling 1): internal test projects outside a top-level test folder (private npm workspace packages, test-harness projects, unpublished Gradle test projects) were components.
@@ -748,6 +927,7 @@ Every survey records its configuration; compare surveys with `recognizer.config_
 
 1. Findings volume on a runtime-output-heavy tree (decision 3): accepted as is; counts per rule, role and relevance are in `classes.json`.
 2. The duplicate-tree test for worktree copies (backlog, M2+).
+3. NB05's grammar lists (`required`, `allowed_only`, the path and name grammars) and Phase 1j's `$name` lists, settings and `disable`: whether the grammar lists also take part in that machinery is not decided. The merge of main into the NB05 branch keeps NB05's behaviour as it was; conformance finding ids use the grammar rule's defining profile (J6), and drift reports a configuration change first (J5).
 
 No Egeria type or API is used or invented; no key was opened for M0, and in M1 only the three tune-set keys were used (via the scorer);
 the two held-out keys and repositories were not touched.

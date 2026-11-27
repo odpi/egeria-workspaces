@@ -1,0 +1,185 @@
+# bids-dataset 0.1.1: conformance of a BIDS-shaped dataset to a DECLARED SUBSET of the Brain Imaging Data Structure (BIDS) specification v1.11.2
+# (https://bids-specification.readthedocs.io/en/v1.11.2/, CC-BY-4.0; see SOURCES.md). Phase 2, notebook 05.
+#
+# The subset: the datatypes anat, func, dwi and fmap; the entities sub, ses, task, acq, dir, run and echo, in the specification's order; the
+# suffixes listed per datatype below (NIfTI data as .nii.gz or .nii); the top-level files dataset_description.json, README, participants.tsv and CHANGES; and the fields
+# BIDSVersion, Name and License of dataset_description.json (the only content read). Everything else BIDS allows is declared `not_checked`
+# (counted, never judged): derivatives/, sourcedata/, code/, stimuli/, phenotype/, other datatypes, scans and sessions files, top-level sidecars
+# and subject- and session-level sidecars and tables (inheritance). Stricter than BIDS on purpose, and stated per rule: README, participants.tsv and
+# CHANGES are REQUIRED here (BIDS 1.11.2: README and participants.tsv RECOMMENDED, CHANGES OPTIONAL; all three are scored as
+# study consistency, not as the standard), every subject must have every session seen in the dataset and every datatype folder seen
+# in that session (study-consistency checks, which BIDS itself does not require). The scanned root is the dataset root.
+profile_id: bids-dataset
+version: 0.1.1
+status: proposed
+applies_to: any
+extends: [generic-relevance]
+roles: [component]
+relevance: {primary: [component], supporting: [], hidden: []}
+rules: []
+path_grammar:
+  - id: PG-subject
+    pattern: "sub-{sub}"
+    tokens: {sub: {regex: "(?!emptyroom$)[a-zA-Z0-9]+"}}
+    yields: subject
+    basis: convention
+    confidence: high
+    evidence: "BIDS 1.11.2: each subject's data is in a folder sub-<label>, and a label is alphanumeric; sub-emptyroom is the specification's subject for MEG empty-room recordings, outside this profile's subset, so it is not a subject here (AO-root does not check it)"
+    tuned_on: ["generated (bids_gen seeds 1-3)", "BIDS spec; noticed on ds000117 (reported-only sample)"]
+  - id: PG-session
+    pattern: "sub-{sub}/ses-{ses}"
+    tokens: {sub: {regex: "[a-zA-Z0-9]+"}, ses: {regex: "[a-zA-Z0-9]+"}}
+    yields: session
+    basis: convention
+    confidence: high
+    evidence: "BIDS 1.11.2: a session is a folder ses-<label> inside the subject folder, and a label is alphanumeric"
+    tuned_on: ["generated (bids_gen seeds 1-3)"]
+  - id: PG-datatype
+    pattern: "sub-{sub}/{datatype}"
+    tokens: {sub: {regex: "[a-zA-Z0-9]+"}, datatype: {values: [anat, func, dwi, fmap]}}
+    yields: datatype
+    basis: convention
+    confidence: high
+    evidence: "BIDS 1.11.2: data files sit in a datatype folder of the subject (no sessions); this profile checks anat, func, dwi and fmap"
+    tuned_on: ["generated (bids_gen seeds 1-3)"]
+  - id: PG-datatype-ses
+    pattern: "sub-{sub}/ses-{ses}/{datatype}"
+    tokens: {sub: {regex: "[a-zA-Z0-9]+"}, ses: {regex: "[a-zA-Z0-9]+"}, datatype: {values: [anat, func, dwi, fmap]}}
+    yields: datatype
+    basis: convention
+    confidence: high
+    evidence: "BIDS 1.11.2: data files sit in a datatype folder of the session; this profile checks anat, func, dwi and fmap"
+    tuned_on: ["generated (bids_gen seeds 1-3)"]
+name_grammar:
+  - id: NG-bids
+    entities:
+      - {key: sub, token: sub}
+      - {key: ses, token: ses}
+      - {key: task, required_for: [bold, sbref, events]}
+      - {key: acq}
+      - {key: dir}
+      - {key: run, label: "[0-9]+"}
+      - {key: echo, label: "[0-9]+"}
+    label: "[a-zA-Z0-9]+"
+    suffixes:
+      by_token: datatype
+      values:
+        anat: [T1w, T2w, FLAIR, PDw, FLASH]
+        func: [bold, sbref, events]
+        dwi: [dwi, sbref]
+        fmap: [magnitude, magnitude1, magnitude2, phasediff, phase1, phase2, fieldmap, epi]
+    extensions:
+      default: [.nii.gz, .nii, .json]
+      by_suffix:
+        events: [.tsv, .json]
+        dwi: [.nii.gz, .nii, .json, .bval, .bvec]
+    basis: convention
+    confidence: high
+    evidence: "BIDS 1.11.2 file names: sub-<label>[_ses-<label>][_task-<label>][_acq-<label>][_dir-<label>][_run-<index>][_echo-<index>]_<suffix><extension>, entities in this order, sub and ses equal to the folders', task required for functional files; NIfTI data as .nii.gz or .nii; this profile allows only the suffixes listed per datatype (FLASH is deprecated in BIDS 1.11.2 but still valid)"
+    tuned_on: ["generated (bids_gen seeds 1-3)", "BIDS spec; noticed on ds000117 (reported-only sample)"]
+required:
+  - id: RQ-dataset-description
+    path: dataset_description.json
+    basis: convention
+    confidence: high
+    evidence: "BIDS 1.11.2: dataset_description.json is REQUIRED at the dataset root"
+  - id: RQ-readme
+    path: README
+    category: study-consistency
+    basis: convention
+    confidence: high
+    evidence: "this profile requires a README at the dataset root; BIDS 1.11.2 RECOMMENDS README, so it is scored as study consistency"
+  - id: RQ-participants
+    path: participants.tsv
+    category: study-consistency
+    basis: convention
+    confidence: high
+    evidence: "this profile requires participants.tsv at the dataset root (BIDS 1.11.2 RECOMMENDS it), so it is scored as study consistency, not as the standard"
+  - id: RQ-changes
+    path: CHANGES
+    category: study-consistency
+    basis: convention
+    confidence: high
+    evidence: "this profile requires CHANGES at the dataset root (BIDS 1.11.2 makes it OPTIONAL), so it is scored as study consistency, not as the standard"
+  - id: RQ-session
+    category: study-consistency
+    of: PG-session
+    for_each: [sub]
+    basis: judgement
+    confidence: medium
+    evidence: "study consistency, not a BIDS rule: this profile expects a regular study, in which every subject has every session seen in the dataset (BIDS 1.11.2 allows subjects to differ)"
+    tuned_on: ["generated (bids_gen seeds 1-3)"]
+  - id: RQ-datatype
+    category: study-consistency
+    of: PG-datatype
+    for_each: [sub]
+    basis: judgement
+    confidence: medium
+    evidence: "study consistency, not a BIDS rule: this profile expects a regular study, in which every subject has every checked datatype folder seen in the dataset (BIDS 1.11.2 allows subjects to differ)"
+    tuned_on: ["generated (bids_gen seeds 1-3)"]
+  - id: RQ-datatype-ses
+    category: study-consistency
+    of: PG-datatype-ses
+    for_each: [sub]
+    basis: judgement
+    confidence: medium
+    evidence: "study consistency, not a BIDS rule: this profile expects a regular study, in which every subject has, in each session, every checked datatype folder seen in that session in the dataset (BIDS 1.11.2 allows subjects to differ)"
+    tuned_on: ["generated (bids_gen seeds 1-3)"]
+allowed_only:
+  - id: AO-root
+    under: "."
+    dirs: [PG-subject]
+    files: [dataset_description.json, README, README.md, README.rst, README.txt, CHANGES, LICENSE, participants.tsv, participants.json]
+    not_checked: [derivatives, sourcedata, code, stimuli, phenotype, sub-emptyroom, .bidsignore, "*.json", "*.tsv"]
+    basis: convention
+    confidence: high
+    evidence: "BIDS 1.11.2 top level: the subject folders and the dataset files; derivatives, sourcedata, code, stimuli, phenotype, the MEG empty-room subject sub-emptyroom, .bidsignore and top-level sidecars and tables (inheritance, samples) are outside this profile's subset and not checked"
+  - id: AO-subject
+    under: [PG-subject]
+    dirs: [PG-session, PG-datatype]
+    not_checked: ["*_sessions.tsv", "*_sessions.json", "*_scans.tsv", "*_scans.json", "*.json", "*.tsv", beh, eeg, ieeg, meg, micr, motion, mrs, nirs, perf, pet]
+    basis: convention
+    confidence: high
+    evidence: "BIDS 1.11.2 subject folder: sessions or datatype folders; the sessions and scans files, subject-level sidecars and tables (*.json, *.tsv: inheritance) and the datatypes outside this profile's subset are not checked"
+  - id: AO-session
+    under: [PG-session]
+    dirs: [PG-datatype-ses]
+    not_checked: ["*_scans.tsv", "*_scans.json", "*.json", "*.tsv", beh, eeg, ieeg, meg, micr, motion, mrs, nirs, perf, pet]
+    basis: convention
+    confidence: high
+    evidence: "BIDS 1.11.2 session folder: datatype folders; the scans file, session-level sidecars and tables (*.json, *.tsv such as channels.tsv: inheritance) and the datatypes outside this profile's subset are not checked"
+  - id: AO-datatype
+    under: [PG-datatype, PG-datatype-ses]
+    name_grammar: [NG-bids]
+    not_checked: ["*_physio.tsv.gz", "*_physio.json", "*_stim.tsv.gz", "*_stim.json"]
+    basis: convention
+    confidence: high
+    evidence: "BIDS 1.11.2 datatype folder: data files and their sidecars named by the entity grammar; physiological and stimulus recordings are outside this profile's subset and not checked"
+content_checks:
+  - id: CT-bidsversion
+    file: dataset_description.json
+    field: BIDSVersion
+    check: {regex: '\d+\.\d+\.\d+'}
+    basis: manifest-content
+    confidence: high
+    evidence: "BIDS 1.11.2: dataset_description.json BIDSVersion is REQUIRED and is a version number MAJOR.MINOR.PATCH"
+  - id: CT-name
+    file: dataset_description.json
+    field: Name
+    check: {non_empty: true}
+    basis: manifest-content
+    confidence: high
+    evidence: "BIDS 1.11.2: dataset_description.json Name is REQUIRED; this profile checks only that it is not empty"
+  - id: CT-license
+    file: dataset_description.json
+    field: License
+    check: {non_empty: true}
+    basis: manifest-content
+    confidence: high
+    evidence: "this profile requires dataset_description.json License to be present and not empty (BIDS 1.11.2 RECOMMENDS it); values are not checked against a list in v0"
+  - id: CT-unreadable
+    file: dataset_description.json
+    unreadable: true
+    basis: manifest-content
+    confidence: high
+    evidence: "dataset_description.json could not be read as a JSON object within the caps (parse error, over the size cap or the time limit), so its fields were not checked"
