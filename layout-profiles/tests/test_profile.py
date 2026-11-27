@@ -162,8 +162,11 @@ def test_invalid_yaml_is_a_profile_error(tmp_path):
         load_profile("broken", tmp_path)
 
 
-def test_grammar_blocks_are_schema_only_but_checked():
-    ok = doc(path_grammar=[{"id": "PG-packages", "pattern": "packages/{name}", "yields": "component"}], name_grammar=[])
-    assert parse_profile(ok).path_grammar[0]["id"] == "PG-packages"
+def test_grammar_blocks_are_checked_and_compiled():
+    # Phase 2 notebook 05 (B1): the grammars are no longer schema-only; tests/test_grammar.py covers what they do
+    pg = {"id": "PG-packages", "pattern": "packages/{name}", "tokens": {"name": {"regex": "[a-z]+"}}, "yields": "component",
+          "basis": "convention", "confidence": "high", "evidence": "packages live in packages/"}
+    ok = doc(path_grammar=[pg], name_grammar=[])
+    assert parse_profile(ok).path_grammar[0].id == "PG-packages"
     with pytest.raises(ProfileError):
-        parse_profile(doc(path_grammar=[{"id": "PG-x", "pattern": "p", "yields": "component", "extra": 1}]))
+        parse_profile(doc(path_grammar=[{**pg, "extra": 1}]))

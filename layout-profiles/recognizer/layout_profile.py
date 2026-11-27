@@ -32,7 +32,8 @@ DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry
 COMPONENT_SCOPES = ("within", "root")                  # file rules only: under some component / directly in a component's directory
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
-TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar")
+TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar",
+            "required", "allowed_only")       # the last four: conformance (recognizer/grammar.py, Phase 2 notebook 05)
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
 RULE_OPTIONAL_KEYS = ("tuned_on",)       # which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect)
 MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_bytes", "member_rule", "aggregator_rule", "section_rule", "fallback_section_rule",
@@ -159,8 +160,10 @@ class Profile:
     manifest_reading: ManifestReading | None = None
     file_roles: tuple = ()                       # the FILE-ROLE layer: path rules that give a file a role only where no rule above claimed it
     extends: tuple = ()
-    path_grammar: tuple = ()
-    name_grammar: tuple = ()
+    path_grammar: tuple = ()                     # grammar.PathPattern, the child's first (conformance; empty in every Phase 1 profile)
+    name_grammar: tuple = ()                     # grammar.NameGrammar
+    required: tuple = ()                         # grammar.Required
+    allowed_only: tuple = ()                     # grammar.AllowedOnly
     composed_of: tuple = ()                      # ((profile_id, version), ...) in the order their rules are checked
     structural: tuple = ()                       # structural rules (dicts), the child's first
 
@@ -380,16 +383,35 @@ def _merge_reading(own, base):
                    max_total_bytes=min(own.max_total_bytes, base.max_total_bytes), **kw)
 
 
-def _grammar(where: str, items: Any, must: tuple) -> tuple:
-    if items is None:
+def _grammar(source: str, key: str, items: Any, origin: str) -> tuple:
+    """Compile one of the conformance lists (path_grammar, name_grammar, required, allowed_only); see recognizer/grammar.py."""
+    if items is None or items == []:
         return ()
+    gm = _gm()
     if not isinstance(items, list):
-        raise ProfileError(f"{where}: expected a list")
+        raise ProfileError(f"{source} {key}: expected a list")
+    make = {"path_grammar": gm.compile_path_grammar, "name_grammar": gm.compile_name_grammar, "required": gm.compile_required}.get(key)
     out = []
     for n, item in enumerate(items):
-        _check_keys(f"{where}[{n}]", item, must, must)
-        out.append(dict(item))
+        try:
+            if make is None:
+                out.append(gm.compile_allowed_only(f"{source} {key}[{n}]", item, origin, BASES, CONFIDENCES, RULE_ID, glob_to_regex))
+            else:
+                out.append(make(f"{source} {key}[{n}]", item, origin, BASES, CONFIDENCES, RULE_ID))
+        except gm.GrammarError as exc:
+            raise ProfileError(str(exc)) from exc
     return tuple(out)
+
+
+GRAMMAR_LISTS = ("path_grammar", "name_grammar", "required", "allowed_only")
+
+
+def _gm():
+    try:
+        from . import grammar
+    except ImportError:                                  # run as a script (recognizer/ on sys.path)
+        import grammar  # type: ignore
+    return grammar
 
 
 def _structural(where: str, items: Any) -> tuple:
@@ -506,8 +528,8 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     merged_rel = dict(rel_map)
     rules = list(own_rules)
     composed = [(pid, version)]
-    path_grammar = _grammar(f"{source} path_grammar", doc.get("path_grammar"), ("id", "pattern", "yields"))
-    name_grammar = _grammar(f"{source} name_grammar", doc.get("name_grammar"), ("id", "pattern", "yields"))
+    gram_own = {k: _grammar(source, k, doc.get(k), pid) for k in GRAMMAR_LISTS}
+    gram = {k: list(v) for k, v in gram_own.items()}
     structural_own = _structural(source, doc.get("structural_rules"))
     structural = list(structural_own)
     for base_id in extends:
@@ -523,6 +545,8 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         own_fr.extend(base.file_roles)
         mreading = _merge_reading(mreading, base.manifest_reading)
         structural.extend(base.structural)
+        for k in GRAMMAR_LISTS:
+            gram[k].extend(getattr(base, k))
         composed.extend(base.composed_of)
     own_ids = [r.id for r in own_rules] + [r.id for r in own_fr if r.origin == pid]
     if len(set(own_ids)) != len(own_ids):
@@ -563,9 +587,32 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     structural = uniq
     if seen_s & set(seen):
         raise ProfileError(f"{source}: structural rule ids must differ from rule ids")
+    gram_ids = [x.id for k in GRAMMAR_LISTS for x in gram_own[k]]
+    if len(set(gram_ids)) != len(gram_ids):
+        raise ProfileError(f"{source}: grammar, required and allowed_only ids must be unique")
+    for k in GRAMMAR_LISTS:                              # the same dedupe as for rules: a profile reached twice contributes once; a real clash is an error
+        out, by = [], {}
+        for x in gram[k]:
+            if x.id in by:
+                if by[x.id] == x.origin:
+                    continue
+                raise ProfileError(f"{source}: {k} id {x.id!r} is used twice (in {by[x.id]!r} and {x.origin!r})")
+            by[x.id] = x.origin
+            out.append(x)
+        gram[k] = tuple(out)
+    all_gram = [x.id for k in GRAMMAR_LISTS for x in gram[k]]
+    if len(set(all_gram)) != len(all_gram) or set(all_gram) & (set(seen) | seen_s):
+        raise ProfileError(f"{source}: grammar, required and allowed_only ids must be unique and differ from rule ids (a finding id is made from the id)")
+    if any(gram[k] for k in GRAMMAR_LISTS):
+        gm = _gm()
+        try:
+            gm.check_references(source, gram["path_grammar"], gram["name_grammar"], gram["required"], gram["allowed_only"])
+        except gm.GrammarError as exc:
+            raise ProfileError(str(exc)) from exc
     composed = list(dict.fromkeys(composed))
     return Profile(profile_id=pid, version=version, status=doc["status"], applies_to=doc["applies_to"], roles=tuple(all_roles),
-                   relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), manifest_reading=mreading, extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
+                   relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), manifest_reading=mreading, extends=tuple(extends), path_grammar=gram["path_grammar"], name_grammar=gram["name_grammar"],
+                   required=gram["required"], allowed_only=gram["allowed_only"],
                    composed_of=tuple(composed), structural=tuple(structural))
 
 

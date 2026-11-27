@@ -33,7 +33,8 @@ Outputs in OUTDIR, byte-identical for the same input and profile (checked on the
 
 See `profiles/generic-relevance.yaml` and `recognizer/layout_profile.py`. In short: `profile_id`, `version` (semver; a rule change bumps it),
 `status` (proposed | confirmed | retired), `applies_to`, optional `extends: [a, b]` (the child's rules first, then a's, then b's), `roles`,
-`relevance` (role -> primary | supporting | hidden), ordered `rules`, and schema-only `path_grammar` / `name_grammar`.
+`relevance` (role -> primary | supporting | hidden), ordered `rules`, and the conformance lists `path_grammar`, `name_grammar`, `required` and
+`allowed_only` (schema-only until Phase 2; see B1 below).
 
 A rule: `id`, `match`, `assign {role, kind?, relevance?}`, `grain`, `basis`, `confidence`, `evidence`. The loader rejects: an unknown key at any
 level, an unknown role or relevance, a role with no relevance, a duplicate rule id, a rule without evidence, a subtree rule that cannot say
@@ -598,6 +599,46 @@ A `missing` deviation's path is the EXPECTED path. A subject-level mutation (ill
 missing-modality-folder) uses a whole subject, and one subject always stays untouched as a witness, so every folder required per subject is still seen
 somewhere. Conflicts (two content mutations of one field, malformed-json with another content mutation, too few subjects or sessions) are refused.
 Rule ids are those of `profiles/bids-dataset.yaml` (B2).
+
+## Phase 2, notebook 05, B1: grammars, required paths and closed sets are evaluated (`recognizer/grammar.py`)
+
+`path_grammar` and `name_grammar` are no longer schema-only, and two new top-level keys join them: `required` and `allowed_only`. Every
+Phase 1 profile has none of them, so its outputs are byte-identical to ef5e2b14 (checked on the tune set and the dogfood trees, every profile,
+with and without manifest reading). A profile that declares `allowed_only` or `required` makes the recognizer judge the tree (every file the
+profile does not hide) and add CONFORMANCE findings to `findings.jsonl` and a `conformance` block to `classes.json`. Names only: no file is opened.
+
+Every item carries `id`, `basis`, `confidence` and `evidence` (and may carry `tuned_on`); the loader rejects an unknown key at any level, a reference
+to an id that does not exist, and an id used twice or equal to a rule id (the id goes into the finding id). Items compose through `extends` as rules do.
+
+- **`path_grammar`**: `{id, pattern, tokens, yields?}`. `pattern` is a relative directory path with named tokens, `sub-{sub}/ses-{ses}/{datatype}`;
+  `tokens` maps each token to `{regex: R}` (a full match) or `{values: [..]}` (one of them, exactly). Every token is defined and used once.
+- **`name_grammar`**: `{id, entities, label, suffixes, extensions}` for FILE names `<key>-<label>[_<key>-<label>...]_<suffix><extension>`.
+  `entities` is the ORDERED list of keys, each `{key, label?, token?, required_for?}`: `label` overrides the grammar's `label` regex; `token` ties the
+  entity to a token of the folder's pattern (present, and equal, exactly when the folder has that token: `sub-01_...` inside `sub-01/`); `required_for`
+  lists the suffixes that need the entity. `suffixes` is a list, or `{by_token: datatype, values: {anat: [T1w], ...}}` (`by_token` names the folder token the list depends on).
+  `extensions` is a list, or `{default: [...], by_suffix: {events: [.tsv]}}` (`by_suffix` overrides the default for a suffix); the longest listed extension is taken (`.nii.gz` before `.gz`).
+- **`required`**: a literal `{path}` that must exist, or `{of: <path_grammar id>, for_each: [tokens]}`: for each value of the `for_each` tokens seen in
+  the tree, every combination of the pattern's other tokens seen in it must exist (every subject has every session, and every datatype folder of it).
+- **`allowed_only`**: `{under, dirs?, files?, name_grammar?, not_checked?}`: a CLOSED set below the directories `under` names (`.` for the root, or
+  path_grammar ids): the sub-directories it allows (path_grammar ids), the files (exact names, and name_grammar ids), and `not_checked` globs of names
+  that are counted but never judged (with everything below them).
+
+**Judging an entry** of a directory an `allowed_only` item covers, in this order: it matches an allowed pattern or name exactly (conformant; a
+directory takes the pattern's tokens and is looked into); it matches a `not_checked` glob (not checked); it has the SHAPE of an allowed item (a
+pattern with its literals compared ignoring case and any text for a regex token, a value token ignoring case; for a file, a key of the grammar
+followed by `-`, or one of its suffixes ignoring case, among its `_` parts; an allowed exact name ignoring case): `naming`/`misnamed`, rule = that
+item, with a short `reason` (`entity-order`, `unknown-entity`, `label`, `case`, `suffix`, `extension`, `missing-entity` ...); otherwise
+`structure`/`unexpected`, rule = the first `allowed_only` item that covers the directory. Nothing below a misnamed or unexpected directory is judged.
+A `required` path that is absent is `structure`/`missing`, and the finding's path is the EXPECTED path. It is not reported when its parent folder is
+absent too (only the shallowest absence is reported), nor when a sibling that differs from it only in case was reported misnamed (one deviation).
+A folder that no `allowed_only` item covers is not checked.
+
+**Findings.** A conformance finding has `kind` (`structure`, `naming` or `content-type`) and `status` (`missing` or `unexpected`; `misnamed`;
+`missing-field`, `invalid-value` or `unreadable`), `grain: conformance`, the item's id as `rule_id`, its basis, confidence and evidence, and
+`reason` for a misnamed one. It has no role or relevance (the `kind` of a component finding is unchanged). `finding_id` keeps its formula,
+`sha256(profile_id@major | rule_id | path)[:16]`, so a missing file keeps its id across surveys. `content-type` (B2) is in the enum from the start.
+**`classes.json` `conformance`**: checked items (entries judged plus required paths expected), conformant items, findings by kind and status, the
+score (conformant / checked) and the not-checked files with their roots and reasons (`not-checked`, `below-finding`, `no-closed-set`).
 
 ## Decisions made so far (for review)
 
