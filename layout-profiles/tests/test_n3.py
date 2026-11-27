@@ -90,9 +90,10 @@ def test_a_package_under_a_tooling_segment_is_tooling_and_not_a_component(tmp_pa
     assert r.by[p]["role"] == "tooling" and r.by[p]["kind"] == "tooling-package" and r.by[p]["rule_id"] == "R-tool-package" and p not in r.allc
 
 
-def test_the_top_level_scripts_folder_keeps_its_convention_component_but_a_package_inside_it_is_tooling(tmp_path):
+def test_the_top_level_scripts_folder_and_a_package_inside_it_are_tooling(tmp_path):
     r = run(tmp_path, ["pyproject.toml", "scripts/run.sh", "scripts/pyproject.toml", "scripts/helper/package.json"])
-    assert r.by["scripts"]["rule_id"] == "R-conv-scripts" and "scripts" in r.allc and r.by["scripts/helper"]["role"] == "tooling"
+    # Phase 1h H1: the top-level scripts folder is tooling (R-conv-scripts), no longer a convention component
+    assert r.by["scripts"]["rule_id"] == "R-conv-scripts" and r.by["scripts"]["role"] == "tooling" and "scripts" not in r.allc and r.by["scripts/helper"]["role"] == "tooling"
 
 
 @pytest.mark.parametrize("seg", ["toolbox", "tools-x", "scriptsx", "cisco", "ci-cd", "githubs", "automation", "kitchen-sink"])
@@ -128,7 +129,7 @@ def test_no_segment_list_contains_a_name_from_a_held_out_or_spent_repository():
 def test_the_new_rules_carry_their_provenance_and_the_test_folder_rule_comes_first():
     p = load_profile("code-repo-conventions", PROFILES)
     ids = [r.id for r in p.rules]
-    assert p.version == "0.8.0" and ids.index("R-conv-tests") < ids.index("R-fx-test-project") < ids.index("R-fx-sample-project") < ids.index("R-conv-docs")
+    assert p.version == "0.9.0" and ids.index("R-conv-tests") < ids.index("R-fx-test-project") < ids.index("R-fx-sample-project") < ids.index("R-conv-docs")
     assert ids.index("R-conv-scripts") < ids.index("R-tool-package")                                                   # the top-level scripts folder keeps its component
     by = {r.id: r for r in p.rules}
     for rid in ("R-fx-test-project", "R-fx-sample-project", "R-tool-package"):

@@ -145,6 +145,7 @@ class Recognizer:
             for cp in r.child_dirs:
                 self.child_first.setdefault(cp.split("/")[0], set()).add(cp)
         self.component_dirs: set = set()             # directories a component rule claims (filled by index_directories); '' is the root
+        self.scope_dirs: set = set()                 # component_dirs and the directories a file_scope rule claims: where component_scope file rules apply
         # hidden subtree rules that depend on the path alone (a rule that also tests a file name cannot say a DIRECTORY is hidden)
         self.hidden_subtrees = [r for r in self.file_rules if r.grain == "subtree" and r.relevance == "hidden"
                                 and set(r.match) <= {"path_segment", "path_glob"}]
@@ -202,6 +203,10 @@ class Recognizer:
             return False
         if r.name_res and not any(rx.search(name) for rx in r.name_res):
             return False
+        if r.parent_not_roles and d:
+            pc = self.claims.get(d[:d.rfind("/")] if "/" in d else "")
+            if pc is not None and pc.role in r.parent_not_roles:
+                return False
         if r.content_min and not (r.content_files & (self._content_at.get(d, set()) | self._content_child.get(d, set()))
                                   or self._content_count.get(r.content_exts, {}).get(d, 0) >= r.content_min):
             return False
@@ -354,6 +359,7 @@ class Recognizer:
             self._apply_generator_sites(self.p.manifest_reading, path_list, all_dirs, holders)
         self._apply_structural_dirs(path_list, all_dirs)
         self.component_dirs = {d for d, r in self.claims.items() if r.grain == "component"}
+        self.scope_dirs = self.component_dirs | {d for d, r in self.claims.items() if r.file_scope}   # H1: a file_scope claim classifies its files as a component's
 
     # ---- structural claims by file kinds and names (N6) -------------------------------------------------------------------
     def _structural_rule(self, sr: dict) -> Rule:
@@ -866,11 +872,11 @@ class Recognizer:
 
     # ---- file rules -----------------------------------------------------------------------------------------------------
     def _under_component(self, dirs: list, root_only: bool) -> bool:
-        if not self.component_dirs:
+        if not self.scope_dirs:
             return False
         if root_only:
-            return "/".join(dirs) in self.component_dirs
-        return "" in self.component_dirs or any("/".join(dirs[:i + 1]) in self.component_dirs for i in range(len(dirs)))
+            return "/".join(dirs) in self.scope_dirs
+        return "" in self.scope_dirs or any("/".join(dirs[:i + 1]) in self.scope_dirs for i in range(len(dirs)))
 
     def _file_match(self, r: Rule, path: str, name: str, dirs: list, dirset: set):
         """Does FILE rule `r` claim this file? Returns (rule, node_path, node_grain) or None."""

@@ -6,7 +6,7 @@
 # (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). The component rules are
 # FROZEN as in 0.1.0; 0.2.0 adds only the file_roles layer below (path rules, no file content), which can neither change a component nor un-hide a file.
 profile_id: code-repo-conventions
-version: 0.8.0
+version: 0.9.0
 status: proposed
 applies_to: code-repo
 extends: [code-repo]
@@ -81,20 +81,21 @@ rules:
     evidence: "a top-level config, configs or conf directory holds the repository's configuration"
     tuned_on: [trellis]
   - id: R-conv-scripts
-    match: {path_glob: [scripts, script]}
-    assign: {role: component, kind: scripts}
-    grain: component
+    match: {path_glob: "*", segment_regex: ['(?i)^scripts?$|^scripts?[-_]']}
+    assign: {role: tooling, kind: maintenance-scripts}
+    grain: dir
+    file_scope: true
     basis: convention
     confidence: medium
-    evidence: "a top-level scripts directory holds the repository's helper scripts"
-    tuned_on: [trellis, superset]
+    evidence: "a top-level directory named scripts or script, or starting scripts-, scripts_, script- or script_ (case-insensitive, whole segment), holds the repository's own maintenance scripts: it is tooling, not a component. Its files keep their file roles (it is a file-role scope, as a component directory is). Known limit: a scripts folder that is really a shipped package (a published CLI under scripts/) becomes tooling; names cannot tell the difference"
+    tuned_on: [trellis, superset, "Phase 1h H1 (Dan's ruling: scripts/ is tooling; the name forms are a closed list, not fitted to a repository)"]
   - id: R-tool-package
-    match: {segment_regex: ['(?i)^(?:tools|tooling|devtools|dev-tools|build-tools|buildsrc|_ext|scripts)$|^(?:\.github|\.circleci|\.buildkite|ci|\.ci|\.teamcity|\.gitlab|\.azure-pipelines|\.azuredevops|\.woodpecker|\.tekton|\.semaphore|\.jenkins)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    match: {segment_regex: ['(?i)^(?:tools|tooling|devtools|dev-tools|build-tools|buildsrc|_ext|scripts|script)$|^scripts?[-_]|^(?:\.github|\.circleci|\.buildkite|ci|\.ci|\.teamcity|\.gitlab|\.azure-pipelines|\.azuredevops|\.woodpecker|\.tekton|\.semaphore|\.jenkins)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
     assign: {role: tooling, kind: tooling-package}
     grain: dir
     basis: convention
     confidence: medium
-    evidence: "a package under a tools, tooling, devtools, dev-tools, build-tools, buildSrc, _ext or scripts folder, or under a CI-configuration folder (the closed list shared with F-ci: .github, .circleci, .buildkite, ci, .ci, .teamcity, .gitlab, .azure-pipelines, .azuredevops, .woodpecker, .tekton, .semaphore, .jenkins), is the repository's own tooling, not a package it ships (a CI tool keeps its own build file there, such as a pom.xml for a Kotlin DSL)"
+    evidence: "a package under a tools, tooling, devtools, dev-tools, build-tools, buildSrc, _ext, scripts or script folder (or one starting scripts-, scripts_, script- or script_, Phase 1h H1), or under a CI-configuration folder (the closed list shared with F-ci: .github, .circleci, .buildkite, ci, .ci, .teamcity, .gitlab, .azure-pipelines, .azuredevops, .woodpecker, .tekton, .semaphore, .jenkins), is the repository's own tooling, not a package it ships (a CI tool keeps its own build file there, such as a pom.xml for a Kotlin DSL)"
     tuned_on: [superset, "dagster (M8, spent)", "Phase 1g G1 (CI-configuration folders; the list is a closed list of CI services, not fitted to a repository)"]
   - id: R-conv-deployment
     match: {path_glob: [docker, deploy, deployment, k8s]}
@@ -121,12 +122,12 @@ rules:
     evidence: "a top-level directory with an __init__.py is an importable Python package even where the manifest sits at the repository root"
     tuned_on: [superset]
   - id: R-conv-node-src
-    match: {path_glob: "*/src", parent_has_file: package.json}
+    match: {path_glob: "*/src", parent_has_file: package.json, parent_not_role: [tooling]}
     assign: {role: component, kind: source-root}
     grain: component
     basis: judgement
     confidence: low
-    evidence: "the src directory directly under a top-level folder that holds a package.json is that application's source root, the substantive part where the package.json is only a build wrapper; a src inside a nested package is part of that package, not a component"
+    evidence: "the src directory directly under a top-level folder that holds a package.json is that application's source root, the substantive part where the package.json is only a build wrapper; a src inside a nested package is part of that package, not a component. Not when the parent is claimed as tooling (Phase 1h H1: a tooling package and its parts are not components)"
     tuned_on: [superset]
 file_roles:
   # The FILE-ROLE layer: every file that no rule above claimed (nothing hidden, no component rule) gets exactly one role from these path rules,

@@ -35,7 +35,7 @@ def test_the_profile_loads_with_evidence_on_every_rule():
 @pytest.mark.parametrize("path,rule,kind", [
     ("docs/index.md", "R-conv-docs", "documentation"), ("doc/a.md", "R-conv-docs", "documentation"),
     ("config/app.yaml", "R-conv-config", "configuration"), ("conf/x.ini", "R-conv-config", "configuration"),
-    ("scripts/run.sh", "R-conv-scripts", "scripts"), ("docker/Dockerfile.base", "R-conv-deployment", "deployment"),
+    ("docker/Dockerfile.base", "R-conv-deployment", "deployment"),     # Phase 1h H1: scripts/ is tooling now (tests/test_h.py)
     ("deploy/k.yaml", "R-conv-deployment", "deployment"), ("tests/test_a.py", "R-conv-tests", "test-suite"),
     ("requirements/base.txt", "R-conv-requirements", "dependency-pins"),
 ])
@@ -201,7 +201,7 @@ def test_every_m2_rule_names_the_repositories_that_motivated_it():
     p = load_profile("code-repo-conventions", PROFILES)
     own = [r for r in p.rules if r.origin == "code-repo-conventions"]
     assert len(own) == 14 and all(r.tuned_on for r in own)
-    assert all({t for t in r.tuned_on if not t.startswith("Phase 1g ")} <= {"trellis", "datahub", "superset"} for r in own if not r.id.startswith(("R-fx-", "R-tool-", "R-conv-test-group")))        # the Phase 1c rules name the spent M8 repositories too
+    assert all({t for t in r.tuned_on if not t.startswith(("Phase 1g ", "Phase 1h "))} <= {"trellis", "datahub", "superset"} for r in own if not r.id.startswith(("R-fx-", "R-tool-", "R-conv-test-group")))        # the Phase 1c rules name the spent M8 repositories too
     assert [x["id"] for x in p.structural] == ["S-workspace-siblings"] and p.structural[0]["tuned_on"] == ["superset"]
     one_repo = sorted(r.id for r in own if len(r.tuned_on) == 1)
     assert "R-conv-node-src" in one_repo and "R-conv-docs" not in one_repo             # one-repository rules are visible, hence ablatable
