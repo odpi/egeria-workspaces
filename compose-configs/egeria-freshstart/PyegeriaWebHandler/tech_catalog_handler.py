@@ -594,7 +594,7 @@ async def get_egeria_bearer_token(request: Request):
     names that platform. The body is read only as application/json (415 otherwise), so a cross-site
     text/plain "simple" POST cannot reach here."""
     from egeria_auth import (_token_expired as egeria_auth_token_expired, bind_token_platform,
-                             default_platform_url, is_caller_password, named_user_refusal,
+                             default_platform_url, demo_persona_refusal, is_caller_password, named_user_refusal,
                              normalize_platform_url, resolve_platform, service_user)
     ctype = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
     if ctype != "application/json":
@@ -614,6 +614,7 @@ async def get_egeria_bearer_token(request: Request):
     # that is sent (even one equal to the service password, as the demo personas' are) may go with
     # any user_id, as before. "Sent" is tested, not is_caller_password: on the demo every persona
     # password equals the service password, so that test would refuse every persona sign-in.
+    # On the demo Portal (DEMO_MODE) that user_id must be a demo persona's (demo_persona_refusal below).
     asked_user = body.get("user_id") or None
     # PO-68: with no password sent, the login-gated modes need a signed-in Portal user (words above).
     demo_mode, server_managed = _login_modes()
@@ -645,6 +646,10 @@ async def get_egeria_bearer_token(request: Request):
     if refusal is not None:
         raise refusal
     user_id  = asked_user if caller_pwd is not None and asked_user else service_user()
+    # On the demo Portal, a sent password goes only with a demo persona's user name (403 otherwise).
+    refusal = demo_persona_refusal(user_id, caller_pwd is not None)
+    if refusal is not None:
+        raise refusal
     user_pwd = caller_pwd           or service_password()
     server   = body.get("server")   or os.environ.get("EGERIA_VIEW_SERVER",    "qs-view-server")
     try:

@@ -133,6 +133,15 @@ class Recognizer:
             self.needed_names |= r.has_files | r.parent_has_files | r.has_entries | r.ancestor_entries | r.group_files
             self.needed_dir_entries |= r.has_entries | r.ancestor_entries
         self.hidden_dir_rules = [r for r in self.dir_rules if r.grain == "subtree" and r.relevance == "hidden"]
+        # G2 (min_content): configuration names to note per directory, and per extension set the number of matching files below each directory (names only)
+        self.content_names = frozenset().union(*(r.content_files for r in self.dir_rules if r.content_min))
+        self.content_ext_sets = tuple(sorted({r.content_exts for r in self.dir_rules if r.content_min}))
+        self._content_at: dict = {}                   # directory -> the configuration names (of content_names) directly in it
+        self._content_child: dict = {}                # directory -> the configuration names directly in one of its direct child folders
+        self._content_count: dict = {}                # extension tuple -> {directory: number of files with one of those extensions anywhere below it}
+        # H2 (only_files): per rule id, directory -> [files below it, files below it that do NOT qualify] (names only; only directories the rule's path_glob allows)
+        self.only_rules = [r for r in self.dir_rules if r.only_files]
+        self._only_state: dict = {r.id: {} for r in self.only_rules}
         self.child_first: dict = {}                   # first segment of a has_child_dir path -> the paths that start with it
         self.nosource_names = set()
         for r in self.dir_rules:
@@ -141,6 +150,7 @@ class Recognizer:
             for cp in r.child_dirs:
                 self.child_first.setdefault(cp.split("/")[0], set()).add(cp)
         self.component_dirs: set = set()             # directories a component rule claims (filled by index_directories); '' is the root
+        self.scope_dirs: set = set()                 # component_dirs and the directories a file_scope rule claims: where component_scope file rules apply
         # hidden subtree rules that depend on the path alone (a rule that also tests a file name cannot say a DIRECTORY is hidden)
         self.hidden_subtrees = [r for r in self.file_rules if r.grain == "subtree" and r.relevance == "hidden"
                                 and set(r.match) <= {"path_segment", "path_glob"}]
@@ -190,13 +200,24 @@ class Recognizer:
             return False
         if r.segments and not any(s in r.segments for s in segs):
             return False
-        if r.segment_res and not any(rx.search(sg) for sg in segs for rx in r.segment_res):
+        if r.has_segment_test and not r.segment_matches(segs):
             return False
         if r.globs and (not d or not any(g.match(d) for g in r.globs)):
             return False
         if r.names and name not in r.names:
             return False
         if r.name_res and not any(rx.search(name) for rx in r.name_res):
+            return False
+        if r.only_files:
+            st = self._only_state[r.id].get(d)
+            if not st or st[1]:
+                return False
+        if r.parent_not_roles and d:
+            pc = self.claims.get(d[:d.rfind("/")] if "/" in d else "")
+            if pc is not None and pc.role in r.parent_not_roles:
+                return False
+        if r.content_min and not (r.content_files & (self._content_at.get(d, set()) | self._content_child.get(d, set()))
+                                  or self._content_count.get(r.content_exts, {}).get(d, 0) >= r.content_min):
             return False
         return True
 
@@ -268,6 +289,28 @@ class Recognizer:
                         parts = cp.split("/")
                         if segs[i:i + len(parts)] == parts and i + len(parts) <= len(segs) - 1:
                             self._child_rel.setdefault("/".join(segs[:i]), set()).add(cp)       # `docs/javadoc` directly below `.../build`
+            if self.content_names and name in self.content_names:
+                self._content_at.setdefault(d, set()).add(name)
+            for exts in self.content_ext_sets:
+                if name.endswith(exts):
+                    counts = self._content_count.setdefault(exts, {})
+                    a = d
+                    while a:
+                        counts[a] = counts.get(a, 0) + 1
+                        a = a[:a.rfind("/")] if "/" in a else ""
+            if self.only_rules:
+                psegs = path.split("/")
+                for r in self.only_rules:
+                    state = self._only_state[r.id]
+                    for i in range(1, len(psegs)):
+                        a = "/".join(psegs[:i])
+                        if r.globs and not any(g.match(a) for g in r.globs):
+                            continue
+                        rest = psegs[i:]
+                        ok = (len(rest) >= 2 and rest[0].lower() in r.only_dirs) or any(rx.match(name) for rx in r.only_res)
+                        st = state.setdefault(a, [0, 0])
+                        st[0] += 1
+                        st[1] += 0 if ok else 1
             if mr is not None and name in mf.ALLOWED_FILES:
                 candidates_m.append((path, size))
                 if name == ".gitmodules":
@@ -278,6 +321,9 @@ class Recognizer:
                     all_dirs.add(d)
                     d = d[:d.rfind("/")] if "/" in d else ""
                     self._dir_count[d] = self._dir_count.get(d, 0) + 1
+        for d, names in self._content_at.items():
+            if d:
+                self._content_child.setdefault(d[:d.rfind("/")] if "/" in d else "", set()).update(names)
         candidates = set(holders) | set(subdirs) | all_dirs if need_all else set(holders) | set(subdirs)
         order = sorted(candidates)
 
@@ -335,6 +381,7 @@ class Recognizer:
             self._apply_generator_sites(self.p.manifest_reading, path_list, all_dirs, holders)
         self._apply_structural_dirs(path_list, all_dirs)
         self.component_dirs = {d for d, r in self.claims.items() if r.grain == "component"}
+        self.scope_dirs = self.component_dirs | {d for d, r in self.claims.items() if r.file_scope}   # H1: a file_scope claim classifies its files as a component's
 
     # ---- structural claims by file kinds and names (N6) -------------------------------------------------------------------
     def _structural_rule(self, sr: dict) -> Rule:
@@ -743,8 +790,8 @@ class Recognizer:
         profile's exclusion rule for that segment instead of the member rule: the same principle as for a manifest project."""
         segs = d.split("/")
         for r in self.dir_rules:
-            if r.role in ("fixture", "example", "tooling", "test-support") and r.grain == "dir" and (r.segment_res or r.segments or r.group_seg_res):
-                if (r.segments and any(x in r.segments for x in segs)) or (r.segment_res and any(rx.search(x) for x in segs for rx in r.segment_res)):
+            if r.role in ("fixture", "example", "tooling", "test-support") and r.grain == "dir" and (r.has_segment_test or r.segments or r.group_seg_res):
+                if (r.segments and any(x in r.segments for x in segs)) or (r.has_segment_test and r.segment_matches(segs)):
                     return r
                 if r.group_seg_res and any(self._groups_projects("/".join(segs[:i]), r) and any(rx.search(segs[i - 1]) for rx in r.group_seg_res) for i in range(1, len(segs))):
                     return r
@@ -847,11 +894,11 @@ class Recognizer:
 
     # ---- file rules -----------------------------------------------------------------------------------------------------
     def _under_component(self, dirs: list, root_only: bool) -> bool:
-        if not self.component_dirs:
+        if not self.scope_dirs:
             return False
         if root_only:
-            return "/".join(dirs) in self.component_dirs
-        return "" in self.component_dirs or any("/".join(dirs[:i + 1]) in self.component_dirs for i in range(len(dirs)))
+            return "/".join(dirs) in self.scope_dirs
+        return "" in self.scope_dirs or any("/".join(dirs[:i + 1]) in self.scope_dirs for i in range(len(dirs)))
 
     def _file_match(self, r: Rule, path: str, name: str, dirs: list, dirset: set):
         """Does FILE rule `r` claim this file? Returns (rule, node_path, node_grain) or None."""
