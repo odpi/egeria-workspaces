@@ -320,3 +320,54 @@ def test_home_says_a_failed_popularity_read_failed_and_still_serves_recent(monke
     assert pop["reason"] != "Popularity not available yet: no usage readings on this platform"
     assert "ranking" not in pop
     assert d["recent"] == []
+
+
+# ── F3: search and browse rows carry usage; the order is unchanged ────────────
+
+def _resource(guid, name, readings=..., desc=""):
+    e = _el(guid, readings, type_name="RelationalTable", name=name)
+    e["elementHeader"]["type"]["superTypeNames"] = ["SchemaAttribute"]
+    e["properties"]["description"] = desc
+    return e
+
+
+def test_rows_carry_usage_from_the_data_scope():
+    import resource_browser_handler as mod
+    measured = mod._row(_resource("a", "orders", {"readsPerDay": "2.5", "readCount": "10"}))
+    zero = mod._row(_resource("z", "zeros", {"readsPerDay": "0"}))
+    bare = mod._row(_resource("b", "orders_bare", {}))
+    none = mod._row(_resource("n", "orders_none"))
+    assert measured["usage"] == {"readsPerDay": 2.5, "readCount": 10}
+    assert zero["usage"] == {"readsPerDay": 0.0}              # measured 0, kept
+    assert bare["usage"] is None and none["usage"] is None     # not measured, never zeros
+    assert "usage" in none                                     # every row carries the key
+
+
+def test_the_row_gains_only_the_usage_field():
+    """F3: freshstart's row shape is otherwise unchanged (no hasScope or scopeRead added)."""
+    import resource_browser_handler as mod
+    r = mod._row(_resource("a", "orders", {"readsPerDay": "1"}))
+    assert set(r) == {"guid", "typeName", "kind", "displayName", "qualifiedName", "description", "owner", "badges",
+                      "dataScope", "usage", "updatedBy", "updateTime", "automated", "matched"}
+
+
+def test_search_order_is_unchanged_by_usage():
+    """Ordering stays text relevance (_relevance); usage is shown only. Rows with readings that would
+    reverse the order if usage were used still come out in relevance order."""
+    import resource_browser_handler as mod
+    rows = [mod._row(_resource("1", "sales orders", {"readsPerDay": "99"}, desc="")),
+            mod._row(_resource("2", "orders", {"readsPerDay": "0.1"})),
+            mod._row(_resource("3", "orders archive")),
+            mod._row(_resource("4", "x", {"readsPerDay": "50"}, desc="has orders in it"))]
+    with_usage = sorted(rows, key=lambda r: mod._relevance(r, "orders"))
+    without = sorted([{**r, "usage": None} for r in rows], key=lambda r: mod._relevance(r, "orders"))
+    assert [r["guid"] for r in with_usage] == [r["guid"] for r in without] == ["2", "3", "1", "4"]
+    import inspect
+    assert "usage" not in inspect.getsource(mod._relevance)
+    assert "items.sort(key=lambda r: _relevance(r, q))" in inspect.getsource(mod.search)
+
+
+def test_order_note_says_usage_is_shown_not_used():
+    import resource_browser_handler as mod
+    assert mod._ORDER_NOTE == "Ordered by text relevance. Usage is shown, not used for ordering."
+    assert "no usage measure" not in _HANDLER.read_text()

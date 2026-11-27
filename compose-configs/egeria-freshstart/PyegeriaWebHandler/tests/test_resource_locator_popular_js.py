@@ -165,3 +165,21 @@ def test_the_page_helpers_match_the_quickstart_copy():
     for name in _NAMES + ("UsageChip",):
         start = qs.index(f"function {name}(")
         assert _fn(name) == qs[start:qs.index("\n}\n", start) + 3], name
+
+
+# ── F3: chips on rows ─────────────────────────────────────────────────────────
+
+def test_result_rows_show_the_usage_chip_fed_by_the_server():
+    row = _fn("ResultRow")
+    # Every row that went through the server's _row has `usage` (null when not measured).
+    assert "rowUsageChip(row) && el(UsageChip, { chip: rowUsageChip(row) })" in row
+
+
+def test_scope_chips_are_unchanged():
+    """F3 must not change freshstart's scope chips: the row's scope chip and ScopeChips stay as they were."""
+    assert "row.dataScope && el('span', { className: 'rb-chip', title: 'This resource records its data scope (time or place)' }, '◷ scope')" in _fn("ResultRow")
+    assert "chip('extra', 'scope details'" in _fn("ScopeChips")
+
+
+def test_the_page_no_longer_says_egeria_holds_no_usage_measure():
+    assert "Egeria holds no usage measure" not in _PAGE

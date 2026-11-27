@@ -1372,7 +1372,9 @@ function ResultRow({ row, idx, extras, showMatched, inLists, extra }) {
       el('span', { className: 'rb-type' }, row.typeName),
       el(FlavourBadge, { flavour: flav }),
       row.badges.map(function(b) { return el('span', { key: b, className: 'rb-chip' }, b); }),
-      row.dataScope && el('span', { className: 'rb-chip', title: 'This resource records its data scope (time or place)' }, '◷ scope')),
+      row.dataScope && el('span', { className: 'rb-chip', title: 'This resource records its data scope (time or place)' }, '◷ scope'),
+      // Usage readings (PO-27): reads/day, "not measured", or "usage not read" when the row's classifications were not read.
+      rowUsageChip(row) && el(UsageChip, { chip: rowUsageChip(row) })),
     row.qualifiedName && row.qualifiedName !== row.displayName && el('div', { className: 'rb-qn' }, row.qualifiedName),
     row.description
       ? el('div', { className: 'd' }, row.description)

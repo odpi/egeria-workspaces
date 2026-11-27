@@ -1434,9 +1434,8 @@ _RECENT_PAGE = 50
 _RECENT_SHOWN = 25
 _CACHE_TTL = 600             # seconds; the page shows the age
 
-_ORDER_NOTE = ("Ordered by text relevance: name matches first, then qualified name, description, "
-               "tag, keyword, owner and column matches. Egeria holds no usage measure yet, "
-               "so nothing is ranked by use.")
+# Search order is text relevance only (PO-27): ranking search by use is a separate decision.
+_ORDER_NOTE = "Ordered by text relevance. Usage is shown, not used for ordering."
 
 
 def _kind_of(type_name: str, super_types: list) -> str:
@@ -1494,6 +1493,7 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         "owner": _owner(cls),
         "badges": [c["name"] for c in cls if c["name"] in _BADGES],
         "dataScope": _data_scope(cls),
+        "usage": _usage(el),
         "updatedBy": versions.get("updatedBy") or versions.get("createdBy") or "",
         "updateTime": versions.get("updateTime") or versions.get("createTime") or "",
         "automated": _looks_automated(versions.get("updatedBy") or versions.get("createdBy")),
