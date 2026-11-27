@@ -182,11 +182,12 @@ def test_group_segment_regex_needs_a_regex_and_a_good_one(tmp_path):
 
 # ---- no held-out names, structural only ---------------------------------------------------------------------------------------------------------------------------
 def test_no_rule_or_recognizer_source_carries_a_held_out_name_or_a_word_list():
-    banned = ("smoke", "spring", "integration-test", "system-test", "inttest", "dockertest")   # Phase 1f adds intTest and dockerTest (compared lower-cased)
+    banned = ("smoke", "spring", "integration-test", "system-test", "inttest", "dockertest",   # Phase 1f adds intTest and dockerTest (compared lower-cased)
+              "datahub", "superset", "trellis", "kafka", "fastapi", "iceberg", "dagster")   # Phase 1g: nor a tune-set or spent repository name named as provenance
     for pid in ("code-repo-conventions", "code-repo", "generic-relevance", "docs-site", "workspace-repo"):
         for r in load_profile(pid, PROFILES).rules:
             text = " ".join([*(rx.pattern for rx in r.segment_res + r.name_res + r.group_seg_res + r.child_seg_res), *r.segments, *r.names, *[str(g.pattern) for g in r.globs], *r.group_files,
-                             *r.child_seg_parents]).lower()
+                             *r.child_seg_parents, *r.content_files, *r.content_exts]).lower()     # Phase 1g: and the G2 min_content lists
             for b in banned:
                 assert b not in text, (pid, r.id, b)
     for src in RECOGNIZER.glob("*.py"):
@@ -199,7 +200,7 @@ def test_the_e1_rules_are_structural_and_carry_provenance_and_the_known_limit():
     p = load_profile("code-repo-conventions", PROFILES)
     by = {r.id: r for r in p.rules}
     ids = [r.id for r in p.rules]
-    assert p.version == "0.7.0" and ids.index("R-conv-tests") < ids.index("R-conv-test-group") < ids.index("R-fx-test-project") < ids.index("R-fx-test-group-project") < ids.index("R-fx-sample-project")
+    assert p.version == "0.8.0" and ids.index("R-conv-tests") < ids.index("R-conv-test-group") < ids.index("R-fx-test-project") < ids.index("R-fx-test-group-project") < ids.index("R-fx-sample-project")
     for rid in ("R-conv-test-group", "R-fx-test-group-project"):
         assert by[rid].tuned_on == ("spring-boot (D6, spent)",) and "Known limit" in by[rid].evidence and by[rid].group_min == 2
     assert by["R-conv-test-group"].kind == "test-suite" and by["R-conv-test-group"].grain == "component" and by["R-fx-test-group-project"].role == "fixture"
