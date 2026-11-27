@@ -34,7 +34,11 @@ DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry
 COMPONENT_SCOPES = ("within", "root")                  # file rules only: under some component / directly in a component's directory
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
-TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar")
+TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar",
+            "lists")
+LIST_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")                     # J0: a named list (`lists:`), referred to as `$name` (a whole value or list element) or `{$name}` in a regex
+LIST_REF = re.compile(r"^\$([a-z0-9][a-z0-9-]*)$")
+LIST_INTERP = re.compile(r"\{\$([a-z0-9][a-z0-9-]*)\}")
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
 RULE_OPTIONAL_KEYS = ("tuned_on", "file_scope")   # tuned_on: which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect);
                                                   # file_scope (H1): a grain-dir directory claim whose files are classified as if it were a component (component_scope)
@@ -195,6 +199,7 @@ class Profile:
     path_grammar: tuple = ()
     name_grammar: tuple = ()
     composed_of: tuple = ()                      # ((profile_id, version), ...) in the order their rules are checked
+    lists: dict = field(default_factory=dict)    # J0: the named lists this profile sees (its own and those of the profiles it extends): name -> tuple of strings
     structural: tuple = ()                       # structural rules (dicts), the child's first
 
     @property
@@ -216,8 +221,62 @@ def _check_keys(where: str, obj: Any, allowed: tuple, required: tuple = ()) -> N
         raise ProfileError(f"{where}: missing required key(s) {missing}")
 
 
-def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: str) -> Rule:
+def _own_lists(source: str, raw: Any) -> dict:
+    """J0: a profile's `lists:` mapping, validated: names are slugs, each list is non-empty and holds non-empty strings. (A name written twice in one profile
+    is caught by load_profile on the YAML nodes, before the mapping collapses it.)"""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict) or not raw:
+        raise ProfileError(f"{source}: lists must be a non-empty mapping of name -> list of strings")
+    out = {}
+    for name, items in raw.items():
+        if not isinstance(name, str) or not LIST_NAME.match(name):
+            raise ProfileError(f"{source} lists: list name {name!r} must be a lowercase slug")
+        if not isinstance(items, list) or not items:
+            raise ProfileError(f"{source} lists.{name}: a list must be a non-empty list of strings")
+        if not all(isinstance(x, str) and x for x in items):
+            raise ProfileError(f"{source} lists.{name}: every item must be a non-empty string")
+        if len(set(items)) != len(items):
+            raise ProfileError(f"{source} lists.{name}: an item is listed twice")
+        out[name] = tuple(items)
+    return out
+
+
+def _resolve_lists(where: str, obj: Any, lists: dict) -> Any:
+    """J0: replace list references in a rule's match: a string that is exactly `$name` becomes the list (as an element of a list it is spliced in), and
+    `{$name}` inside a string (a regex) becomes the list's items, regex-escaped, joined by `|`. An unknown name is an error."""
+    def get(name):
+        if name not in lists:
+            raise ProfileError(f"{where}: unknown list ${name}; known {sorted(lists)}")
+        return lists[name]
+
+    def scalar(v):
+        if isinstance(v, str):
+            m = LIST_REF.match(v)
+            if m:
+                return list(get(m.group(1)))
+            return LIST_INTERP.sub(lambda mm: "|".join(re.escape(x) for x in get(mm.group(1))), v)
+        return walk(v)
+
+    def walk(v):
+        if isinstance(v, dict):
+            return {k: scalar(x) for k, x in v.items()}
+        if isinstance(v, list):
+            out = []
+            for x in v:
+                if isinstance(x, str) and LIST_REF.match(x):
+                    out.extend(get(LIST_REF.match(x).group(1)))
+                else:
+                    out.append(scalar(x))
+            return out
+        return v
+    return scalar(obj)
+
+
+def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: str, lists: dict | None = None) -> Rule:
     _check_keys(where, raw, RULE_KEYS + RULE_OPTIONAL_KEYS, RULE_KEYS)
+    if lists is not None and isinstance(raw.get("match"), dict):
+        raw = {**raw, "match": _resolve_lists(f"{where} rule {raw.get('id')!r} match", raw["match"], lists)}
     rid = raw["id"]
     tuned_on = raw.get("tuned_on", [])
     if not isinstance(tuned_on, list) or not all(isinstance(x, str) and x for x in tuned_on):
@@ -591,12 +650,28 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     extends = doc.get("extends") or []
     if not isinstance(extends, list):
         raise ProfileError(f"{source}: extends must be a list of profile ids")
+    own_lists = _own_lists(source, doc.get("lists"))
+    bases = []
+    for base_id in extends:                                  # J0: the extended profiles are loaded FIRST, so this profile's rules can refer to their lists
+        if profiles_dir is None:
+            raise ProfileError(f"{source}: extends {base_id!r} but no profiles directory was given")
+        bases.append(load_profile(base_id, profiles_dir, _stack + (pid,)))
+    lists: dict = {}
+    for base in bases:
+        for name, items in base.lists.items():
+            if name in lists and lists[name] != items:
+                raise ProfileError(f"{source}: list {name!r} comes from two extended profiles with different items")
+            lists[name] = items
+    for name in own_lists:
+        if name in lists:
+            raise ProfileError(f"{source}: list {name!r} is already defined by an extended profile (a profile may not redefine an inherited list)")
+    lists.update(own_lists)
     own_rules = []
     raw_rules = doc["rules"]
     if not isinstance(raw_rules, list):
         raise ProfileError(f"{source}: rules must be a list")
     for n, raw in enumerate(raw_rules):
-        own_rules.append(_compile_rule(f"{source} rules[{n}]", raw, tuple(roles), rel_map, pid))
+        own_rules.append(_compile_rule(f"{source} rules[{n}]", raw, tuple(roles), rel_map, pid, lists))
 
     mreading = _manifest_reading(source, doc.get("manifest_reading"), tuple(roles), rel_map, pid)
     raw_fr = doc.get("file_roles") or []
@@ -604,7 +679,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         raise ProfileError(f"{source}: file_roles must be a list")
     own_fr = []
     for n, raw in enumerate(raw_fr):
-        r = _compile_rule(f"{source} file_roles[{n}]", raw, tuple(roles), rel_map, pid)
+        r = _compile_rule(f"{source} file_roles[{n}]", raw, tuple(roles), rel_map, pid, lists)
         if r.is_dir_rule or r.grain != "dir":
             raise ProfileError(f"{source} file_roles[{n}] rule {r.id!r}: a file-role rule tests a FILE and has grain 'dir'")
         own_fr.append(r)
@@ -616,10 +691,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     name_grammar = _grammar(f"{source} name_grammar", doc.get("name_grammar"), ("id", "pattern", "yields"))
     structural_own = _structural(source, doc.get("structural_rules"))
     structural = list(structural_own)
-    for base_id in extends:
-        if profiles_dir is None:
-            raise ProfileError(f"{source}: extends {base_id!r} but no profiles directory was given")
-        base = load_profile(base_id, profiles_dir, _stack + (pid,))
+    for base in bases:
         for role in base.roles:
             if role not in all_roles:
                 all_roles.append(role)
@@ -672,7 +744,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     composed = list(dict.fromkeys(composed))
     return Profile(profile_id=pid, version=version, status=doc["status"], applies_to=doc["applies_to"], roles=tuple(all_roles),
                    relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), manifest_reading=mreading, extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
-                   composed_of=tuple(composed), structural=tuple(structural))
+                   composed_of=tuple(composed), structural=tuple(structural), lists=lists)
 
 
 def load_profile(profile_id_or_path: str, profiles_dir: Path | str | None = None, _stack: tuple = ()) -> Profile:
@@ -687,10 +759,19 @@ def load_profile(profile_id_or_path: str, profiles_dir: Path | str | None = None
         base_dir = Path(profiles_dir) if profiles_dir else p.parent
     if not p.is_file():
         raise ProfileError(f"profile file not found: {p}")
+    text = p.read_text(encoding="utf-8")
     try:
-        doc = yaml.safe_load(p.read_text(encoding="utf-8"))
+        doc = yaml.safe_load(text)
+        node = yaml.compose(text, Loader=yaml.SafeLoader)
     except yaml.YAMLError as exc:
         raise ProfileError(f"{p}: not valid YAML: {exc}") from exc
+    if isinstance(node, yaml.MappingNode):                   # J0: a list name written twice in one profile (YAML would keep only the last)
+        for k, v in node.value:
+            if isinstance(k, yaml.ScalarNode) and k.value == "lists" and isinstance(v, yaml.MappingNode):
+                names = [kk.value for kk, _ in v.value]
+                dup = sorted({x for x in names if names.count(x) > 1})
+                if dup:
+                    raise ProfileError(f"{p}: list name(s) {dup} defined twice in this profile")
     prof = parse_profile(doc, str(p), base_dir, _stack)
     if p.stem != prof.profile_id and p.suffix in (".yaml", ".yml") and not str(profile_id_or_path).endswith((".yaml", ".yml")):
         raise ProfileError(f"{p}: profile_id {prof.profile_id!r} does not match the file name")
