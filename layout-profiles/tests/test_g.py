@@ -120,14 +120,15 @@ def test_the_ci_folder_list_is_one_closed_list_in_both_places():
     p = load_profile("code-repo-conventions", PROFILES)
     by = {r.id: r for r in (*p.rules, *p.file_roles)}
     tool, fci = by["R-tool-package"], by["F-ci"]
-    assert p.version == "0.10.0"
-    (rx,) = tool.segment_res
+    assert p.version == "0.11.0"
+    rx, scripts_rx = tool.segment_res                    # Phase 1j J3: the scripts segments are their own regex, present while scripts-are-tooling is on
     alts = re.findall(r"\^\(\?:([^)]*)\)\$", rx.pattern)
     assert len(alts) == 2
     tooling_words = alts[0].split("|")
     ci_words = [w.replace("\\.", ".") for w in alts[1].split("|")]
     assert tuple(ci_words) == CI_FOLDERS
-    assert tooling_words == ["tools", "tooling", "devtools", "dev-tools", "build-tools", "buildsrc", "_ext", "scripts", "script"]     # Phase 1h H1 adds script (and the scripts?[-_] prefix form)
+    assert tooling_words == ["tools", "tooling", "devtools", "dev-tools", "build-tools", "buildsrc", "_ext"]
+    assert scripts_rx.pattern == "(?i)^(?:scripts|script)$|^scripts?[-_]"        # Phase 1h H1 (script and the scripts?[-_] prefix form)
     globs = list(fci.match["path_glob"])
     assert globs == [g for x in CI_FOLDERS for g in ((f"{x}/**",) if x == "ci" else (f"{x}/**", f"**/{x}/**"))] + [".gitlab-ci.yml", "Jenkinsfile"]
     for x in CI_FOLDERS:
@@ -275,7 +276,7 @@ def test_g2_reads_names_only(tmp_path):
 def test_both_docs_rules_share_the_lists_and_state_the_judgement():
     a = {r.id: r for r in load_profile("code-repo-conventions", PROFILES).rules}["R-conv-docs"]
     b = {r.id: r for r in load_profile("docs-site", PROFILES).rules}["R-docs-folder-top-level"]
-    assert load_profile("docs-site", PROFILES).version == "0.5.0" and load_profile("code-repo-conventions", PROFILES).version == "0.10.0"
+    assert load_profile("docs-site", PROFILES).version == "0.5.0" and load_profile("code-repo-conventions", PROFILES).version == "0.11.0"
     for r in (a, b):
         assert r.content_min == 2 and r.content_exts == (".md", ".mdx", ".rst", ".adoc", ".asciidoc", ".txt", ".ipynb")
         assert r.content_files == frozenset({"mkdocs.yml", "mkdocs.yaml", "docusaurus.config.js", "docusaurus.config.ts", "docusaurus.config.mjs", "docusaurus.config.cjs", "conf.py",

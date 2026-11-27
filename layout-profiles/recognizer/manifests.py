@@ -249,8 +249,9 @@ def _strs(value) -> list:
     return [v for v in value if isinstance(v, str)] if isinstance(value, list) else []
 
 
-def extract(reader: str, path: str, data: bytes) -> Decl | None:
-    """Parse `data` (already size-capped) and return a Decl, or None when the file declares nothing of interest. Raises ManifestParseError."""
+def extract(reader: str, path: str, data: bytes, skip: frozenset = frozenset()) -> Decl | None:
+    """Parse `data` (already size-capped) and return a Decl, or None when the file declares nothing of interest. Raises ManifestParseError.
+    `skip` (J3, D-J4) names "reader.field" fields NOT to extract because a setting switched them off (narrow only: package-json.private)."""
     directory = path.rpartition("/")[0]
     if reader == "package-json":
         doc = parse_json(data)
@@ -259,7 +260,7 @@ def extract(reader: str, path: str, data: bytes) -> Decl | None:
         ws = doc.get("workspaces")
         members = _strs(ws.get("packages") if isinstance(ws, dict) else ws)
         name = doc.get("name") if isinstance(doc.get("name"), str) else None
-        private = doc.get("private") is True                          # I1: the boolean true only; "true", 1 or false are not private
+        private = "package-json.private" not in skip and doc.get("private") is True   # I1: the boolean true only; J3: not read when a setting is off
         if not (members or name or private):
             return None
         d = Decl(reader, path, directory, "workspaces", name, members, aggregator=bool(members))
@@ -423,7 +424,7 @@ class ManifestReading:
 
 
 def read_manifests(candidates: list, source, readers, hidden, *, max_file_bytes=DEFAULT_MAX_FILE_BYTES, max_blobs=DEFAULT_MAX_BLOBS,
-                   max_total_bytes=DEFAULT_MAX_TOTAL_BYTES, out: "ManifestReading | None" = None) -> ManifestReading:
+                   max_total_bytes=DEFAULT_MAX_TOTAL_BYTES, out: "ManifestReading | None" = None, skip: frozenset = frozenset()) -> ManifestReading:
     """`candidates` is a list of (path, size) whose file NAME is on the closed list. `hidden(path)` says a path is inside a hidden subtree.
     Order: shallowest first, then by path, so the caps drop the deepest first and the result is deterministic."""
     out = out if out is not None else ManifestReading()                      # an existing result accumulates (the caps count across calls)
@@ -460,7 +461,7 @@ def read_manifests(candidates: list, source, readers, hidden, *, max_file_bytes=
         out.blobs[path] = sha
         for r in rs:
             try:
-                d = extract(r, path, data)
+                d = extract(r, path, data, skip)
             except ManifestParseError as exc:
                 out.stats.parse_errors += 1
                 out.notes[path] = f"parse_error: {exc}"

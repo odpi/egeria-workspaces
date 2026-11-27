@@ -35,12 +35,14 @@ COMPONENT_SCOPES = ("within", "root")                  # file rules only: under 
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
 TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar",
-            "lists", "disable")
+            "lists", "disable", "settings")
 LIST_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")                     # J0: a named list (`lists:`), referred to as `$name` (a whole value or list element) or `{$name}` in a regex
 LIST_REF = re.compile(r"^\$([a-z0-9][a-z0-9-]*)$")
 LIST_INTERP = re.compile(r"\{\$([a-z0-9][a-z0-9-]*)\}")
+SETTING_TYPES = ("bool", "int", "list")              # J3: the types of a named setting
+NARROWABLE_FIELDS = ("package-json.private",)       # J3/D-J4: the manifest fields a setting may switch OFF (the reader honours the skip); a setting can never add one
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
-RULE_OPTIONAL_KEYS = ("tuned_on", "file_scope")   # tuned_on: which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect);
+RULE_OPTIONAL_KEYS = ("tuned_on", "file_scope", "when")   # tuned_on: which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect);
                                                   # file_scope (H1): a grain-dir directory claim whose files are classified as if it were a component (component_scope)
 MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_bytes", "member_rule", "aggregator_rule", "section_rule", "fallback_section_rule",
                          "docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule", "translation_rule", "included_build_rule")
@@ -142,7 +144,8 @@ class Rule:
     file_scope: bool = False                     # H1: the directory this (grain dir) rule claims is a file-role scope, like a component directory, though it is not a component
     named_dir: bool = False                      # a subtree rule that names the directory (`name`) rather than a path: it is a directory rule
     scope: str = ""                              # file rules: '' | 'within' (under a component) | 'root' (directly in a component's directory)
-    list_refs: frozenset = field(default=frozenset(), compare=False)   # J2: the named lists the rule's match refers to
+    list_refs: frozenset = field(default=frozenset(), compare=False)   # J2/J3: the named lists (and settings) the rule's match refers to
+    when: dict = field(default_factory=dict, compare=False)            # J3: {setting: value}: the rule is active only when every one holds
     raw: Any = field(default=None, compare=False, repr=False)          # J2: the rule as written (before list resolution), to recompile it after a list override
     ctx: tuple = field(default=(), compare=False, repr=False)          # J2: (roles, relevance map) of the defining profile, for that recompilation
 
@@ -185,6 +188,7 @@ class ManifestReading:
     site_output_rule: str | None = None          # id of the profile's rule that hides the built site (applied where mkdocs.yml names another site_dir)
     submodule_rule: str | None = None            # id of the profile's nested-repository rule: a directory the outer repository's .gitmodules declares is NOT claimed by it
     fallback_site_rule: str | None = None        # id of the profile's rule that recognizes a site by its generator's config FILE NAME (never read): the fallback sections apply there
+    skip_fields: frozenset = frozenset()         # J3/D-J4: "reader.field" names NOT extracted, because a setting that governs them is off (narrow only)
 
 
 @dataclass
@@ -207,6 +211,11 @@ class Profile:
     replaced: tuple = ()                         # J1: inherited rule ids a rule of the same id REPLACED at the inherited position
     effective_order: tuple = ()                  # J1: the ids of the effective rules, then of the file-role rules, in the order they are checked
     overridden: tuple = ()                       # J2: the names of inherited lists this profile (and the profiles it extends) overrode
+    settings_decl: dict = field(default_factory=dict)   # J3: name -> {"type", "default", "doc", "reads"} (declared here or in an extended profile)
+    settings: dict = field(default_factory=dict)        # J3: name -> the effective value
+    settings_set: tuple = ()                     # J3: names a profile of the chain SET (with `settings: {name: value}`), in order
+    all_rules: tuple = ()                        # J3: every rule, active or not (a `when:` that does not hold), for profiles that extend this one
+    all_file_roles: tuple = ()
     structural: tuple = ()                       # structural rules (dicts), the child's first
 
     @property
@@ -289,6 +298,8 @@ def _apply_override(where: str, base: tuple, op: str, vals: tuple) -> tuple:
 def _list_refs(obj: Any) -> set:
     """J2: the names of the lists a rule's match refers to ($name or {$name})."""
     if isinstance(obj, dict):
+        if set(obj) == {"when", "item"} and isinstance(obj["when"], dict):
+            return set(obj["when"]) | _list_refs(obj["item"])
         return set().union(*(_list_refs(v) for v in obj.values())) if obj else set()
     if isinstance(obj, list):
         return set().union(*(_list_refs(v) for v in obj)) if obj else set()
@@ -298,20 +309,29 @@ def _list_refs(obj: Any) -> set:
     return set()
 
 
-def _resolve_lists(where: str, obj: Any, lists: dict) -> Any:
-    """J0: replace list references in a rule's match: a string that is exactly `$name` becomes the list (as an element of a list it is spliced in), and
-    `{$name}` inside a string (a regex) becomes the list's items, regex-escaped, joined by `|`. An unknown name is an error."""
-    def get(name):
-        if name not in lists:
-            raise ProfileError(f"{where}: unknown list ${name}; known {sorted(lists)}")
-        return lists[name]
+def _resolve_lists(where: str, obj: Any, lists: dict, settings: dict | None = None) -> Any:
+    """J0/J3: replace references in a rule's match. A string that is exactly `$name` becomes the list of that name (as an element of a list it is spliced in),
+    or, where no list has the name, the value of an int or list SETTING (J3: `min_files: $docs-min-files`). `{$name}` inside a string (a regex) becomes the
+    list's items, regex-escaped, joined by `|`. In a list, an element `{when: {setting: value}, item: x}` (J3) is kept (as x) only when the settings hold.
+    An unknown name is an error."""
+    settings = settings or {}
+
+    def get(name, inside=False):
+        if name in lists:
+            return list(lists[name])
+        if name in settings and not inside:
+            v = settings[name]
+            if isinstance(v, bool):
+                raise ProfileError(f"{where}: ${name} is a bool setting; it can be used in when:, not as a match value")
+            return v
+        raise ProfileError(f"{where}: unknown list ${name}; known {sorted(lists)}")
 
     def scalar(v):
         if isinstance(v, str):
             m = LIST_REF.match(v)
             if m:
-                return list(get(m.group(1)))
-            return LIST_INTERP.sub(lambda mm: "|".join(re.escape(x) for x in get(mm.group(1))), v)
+                return get(m.group(1))
+            return LIST_INTERP.sub(lambda mm: "|".join(re.escape(x) for x in get(mm.group(1), inside=True)), v)
         return walk(v)
 
     def walk(v):
@@ -320,8 +340,13 @@ def _resolve_lists(where: str, obj: Any, lists: dict) -> Any:
         if isinstance(v, list):
             out = []
             for x in v:
+                if isinstance(x, dict) and set(x) == {"when", "item"}:
+                    if not _when_holds(where, x["when"], settings):
+                        continue
+                    x = x["item"]
                 if isinstance(x, str) and LIST_REF.match(x):
-                    out.extend(get(LIST_REF.match(x).group(1)))
+                    got = get(LIST_REF.match(x).group(1))
+                    out.extend(got if isinstance(got, list) else [got])
                 else:
                     out.append(scalar(x))
             return out
@@ -329,11 +354,28 @@ def _resolve_lists(where: str, obj: Any, lists: dict) -> Any:
     return scalar(obj)
 
 
-def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: str, lists: dict | None = None) -> Rule:
+def _when_holds(where: str, when: Any, settings: dict) -> bool:
+    if not isinstance(when, dict) or not when:
+        raise ProfileError(f"{where}: when needs a mapping of setting -> value")
+    for name, want in when.items():
+        if name not in settings:
+            raise ProfileError(f"{where}: when names {name!r}, which is not a declared setting")
+        have = settings[name]
+        if type(want) is not type(have):
+            raise ProfileError(f"{where}: when {name}: {want!r} does not match the setting's type")
+        if have != want:
+            return False
+    return True
+
+
+def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: str, lists: dict | None = None, settings: dict | None = None) -> Rule:
     _check_keys(where, raw, RULE_KEYS + RULE_OPTIONAL_KEYS, RULE_KEYS)
     written, refs = raw, frozenset(_list_refs(raw.get("match")))
+    when = raw.get("when", {})
+    if "when" in raw:
+        _when_holds(f"{where} rule {raw.get('id')!r}", when, settings or {})            # validates the names and value types
     if lists is not None and isinstance(raw.get("match"), dict):
-        raw = {**raw, "match": _resolve_lists(f"{where} rule {raw.get('id')!r} match", raw["match"], lists)}
+        raw = {**raw, "match": _resolve_lists(f"{where} rule {raw.get('id')!r} match", raw["match"], lists, settings)}
     rid = raw["id"]
     tuned_on = raw.get("tuned_on", [])
     if not isinstance(tuned_on, list) or not all(isinstance(x, str) and x for x in tuned_on):
@@ -503,7 +545,7 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         except re.error as exc:
             raise ProfileError(f"{where}: bad name_regex {rx!r}: {exc}") from exc
     return Rule(
-        list_refs=refs, raw=written, ctx=(tuple(roles), dict(rel_map)),
+        list_refs=refs, raw=written, ctx=(tuple(roles), dict(rel_map)), when=dict(when),
         tuned_on=tuple(tuned_on), id=rid, match=dict(match), role=role, relevance=relevance, kind=assign.get("kind"), grain=grain, basis=raw["basis"],
         confidence=raw["confidence"], evidence=evidence.strip(), origin=origin,
         segments=frozenset(_as_list(match.get("path_segment", []))), names=frozenset(_as_list(match.get("name", []))),
@@ -669,6 +711,59 @@ def _structural(where: str, items: Any) -> tuple:
     return tuple(out)
 
 
+def _setting_value_ok(typ: str, v: Any) -> bool:
+    if typ == "bool":
+        return isinstance(v, bool)
+    if typ == "int":
+        return isinstance(v, int) and not isinstance(v, bool)
+    return isinstance(v, list) and bool(v) and all(isinstance(x, str) and x for x in v)
+
+
+def _own_settings(source: str, raw: Any) -> tuple:
+    """J3: a profile's `settings:` mapping, split into DECLARATIONS (name -> {type, default, doc[, reads]}) and VALUES for inherited settings (name -> value)."""
+    if raw is None:
+        return {}, {}
+    if not isinstance(raw, dict) or not raw:
+        raise ProfileError(f"{source}: settings must be a non-empty mapping")
+    decls, values = {}, {}
+    for name, v in raw.items():
+        if not isinstance(name, str) or not LIST_NAME.match(name):
+            raise ProfileError(f"{source} settings: setting name {name!r} must be a lowercase slug")
+        if isinstance(v, dict) and "type" in v:
+            w = f"{source} settings.{name}"
+            _check_keys(w, v, ("type", "default", "doc", "reads"), ("type", "default", "doc"))
+            if v["type"] not in SETTING_TYPES:
+                raise ProfileError(f"{w}: type must be one of {list(SETTING_TYPES)}")
+            if not _setting_value_ok(v["type"], v["default"]):
+                raise ProfileError(f"{w}: default {v['default']!r} is not a {v['type']}")
+            if not isinstance(v["doc"], str) or not v["doc"].strip():
+                raise ProfileError(f"{w}: doc must be a non-empty string")
+            reads = v.get("reads", [])
+            if "reads" in v:                                  # D-J4: a setting may only switch OFF a field that is read today, never add one
+                if not isinstance(reads, list) or not reads or any(x not in NARROWABLE_FIELDS for x in reads):
+                    raise ProfileError(f"{w}: reads may name only {list(NARROWABLE_FIELDS)} (a setting can narrow what is read, never widen it)")
+                if v["type"] != "bool" or v["default"] is not True:
+                    raise ProfileError(f"{w}: a setting that governs a read must be a bool whose default is true (turning it off narrows the read)")
+            decls[name] = {"type": v["type"], "default": v["default"], "doc": v["doc"].strip(), "reads": tuple(reads)}
+        else:
+            values[name] = v
+    return decls, values
+
+
+def _no_refs_in_reading(source: str, raw: Any) -> None:
+    """D-J4: manifest_reading takes no list or setting reference: no list, override or setting can add a reader, a field or a content read."""
+    def walk(v):
+        if isinstance(v, dict):
+            for x in list(v.keys()) + list(v.values()):
+                walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x)
+        elif isinstance(v, str) and (LIST_REF.match(v) or LIST_INTERP.search(v)):
+            raise ProfileError(f"{source}: manifest_reading may not refer to a list or a setting ({v!r}); what is read is fixed by the profile (D-J4)")
+    walk(raw)
+
+
 def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None = None, _stack: tuple = (), _composite: bool = False) -> Profile:
     """Validate a parsed YAML document and return the composed Profile (its `extends` resolved from `profiles_dir`)."""
     _check_keys(source, doc, TOP_KEYS, ("profile_id", "version", "status", "applies_to", "roles", "relevance", "rules"))
@@ -729,12 +824,45 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
             raise ProfileError(f"{source} lists.{name}: overrides an unknown list (no extended profile defines it)")
         lists[name] = _apply_override(f"{source} lists.{name}.{op}", lists[name], op, vals)
     lists.update(own_lists)
+    # J3: settings. Declarations are inherited; a profile may SET an inherited setting; the effective values drive `when:` and `$setting`.
+    own_decls, own_values = _own_settings(source, doc.get("settings"))
+    decls: dict = {}
+    values: dict = {}
+    for base in bases:
+        for name, d in base.settings_decl.items():
+            if name in decls and decls[name] != d:
+                raise ProfileError(f"{source}: setting {name!r} is declared differently by two extended profiles")
+            decls[name] = d
+        for name, v in base.settings.items():
+            if name in values and values[name] != v:
+                raise ProfileError(f"{source}: setting {name!r} has different values in two extended profiles")
+            values[name] = v
+    for name, d in own_decls.items():
+        if name in decls:
+            raise ProfileError(f"{source} settings.{name}: already declared by an extended profile (set its value instead)")
+        if name in lists:
+            raise ProfileError(f"{source} settings.{name}: a setting may not share its name with a list")
+        decls[name] = d
+        values[name] = d["default"]
+    for name in decls:
+        if name in lists:
+            raise ProfileError(f"{source}: setting {name!r} shares its name with a list")
+    changed = set()
+    for name, v in own_values.items():
+        if name not in decls or name in own_decls:
+            raise ProfileError(f"{source} settings.{name}: not a setting declared by an extended profile")
+        if not _setting_value_ok(decls[name]["type"], v):
+            raise ProfileError(f"{source} settings.{name}: {v!r} is not a {decls[name]['type']}")
+        if values[name] != v:
+            changed.add(name)
+        values[name] = v
+    _no_refs_in_reading(source, doc.get("manifest_reading"))
     own_rules = []
     raw_rules = doc["rules"]
     if not isinstance(raw_rules, list):
         raise ProfileError(f"{source}: rules must be a list")
     for n, raw in enumerate(raw_rules):
-        own_rules.append(_compile_rule(f"{source} rules[{n}]", raw, tuple(roles), rel_map, pid, lists))
+        own_rules.append(_compile_rule(f"{source} rules[{n}]", raw, tuple(roles), rel_map, pid, lists, values))
 
     mreading = _manifest_reading(source, doc.get("manifest_reading"), tuple(roles), rel_map, pid)
     raw_fr = doc.get("file_roles") or []
@@ -742,7 +870,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         raise ProfileError(f"{source}: file_roles must be a list")
     own_fr = []
     for n, raw in enumerate(raw_fr):
-        r = _compile_rule(f"{source} file_roles[{n}]", raw, tuple(roles), rel_map, pid, lists)
+        r = _compile_rule(f"{source} file_roles[{n}]", raw, tuple(roles), rel_map, pid, lists, values)
         if r.is_dir_rule or r.grain != "dir":
             raise ProfileError(f"{source} file_roles[{n}] rule {r.id!r}: a file-role rule tests a FILE and has grain 'dir'")
         own_fr.append(r)
@@ -761,8 +889,8 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
                 all_roles.append(role)
         for role, level in base.relevance.items():
             merged_rel.setdefault(role, level)          # the child's mapping wins
-        inh_rules.extend(base.rules)
-        inh_fr.extend(base.file_roles)
+        inh_rules.extend(base.all_rules or base.rules)          # J3: the inactive rules too, so a setting can switch them back on
+        inh_fr.extend(base.all_file_roles or base.file_roles)
         mreading = _merge_reading(mreading, base.manifest_reading)
         structural.extend(base.structural)
         composed.extend(base.composed_of)
@@ -789,11 +917,11 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
             out.append(rule)
         return out
     inh_rules, inh_fr = dedupe(inh_rules, "rules"), dedupe(inh_fr, "file_roles")
-    if overrides:                                            # J2: an inherited rule that refers to an overridden list is recompiled with the overridden list
+    if overrides or changed:                                 # J2/J3: an inherited rule that refers to an overridden list or a changed setting is recompiled
         def recompile(r):
-            if not (r.list_refs & set(overrides)) or r.raw is None:
+            if not (r.list_refs & (set(overrides) | changed)) or r.raw is None:
                 return r
-            return _compile_rule(f"{source} (list override, rule of {r.origin!r})", r.raw, r.ctx[0], r.ctx[1], r.origin, lists)
+            return _compile_rule(f"{source} (list override or setting, rule of {r.origin!r})", r.raw, r.ctx[0], r.ctx[1], r.origin, lists, values)
         inh_rules, inh_fr = [recompile(r) for r in inh_rules], [recompile(r) for r in inh_fr]
     inh_rule_ids, inh_fr_ids = {r.id for r in inh_rules}, {r.id for r in inh_fr}
     # J1: `disable:` removes inherited rules; an own rule with an inherited id REPLACES that rule at the inherited position (first-match order kept)
@@ -829,10 +957,13 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         return out
     rules = [r for r in own_rules if r.id not in inh_rule_ids] + overlay(inh_rules, own_rules)
     fr_out = [r for r in own_fr if r.id not in inh_fr_ids] + overlay(inh_fr, own_fr)
+    all_rules_out, all_fr_out = tuple(rules), tuple(fr_out)     # J3: every rule; the EFFECTIVE ones are those whose `when:` holds
+    rules = [r for r in rules if not r.when or _when_holds(source, r.when, values)]
+    fr_out = [r for r in fr_out if not r.when or _when_holds(source, r.when, values)]
     for r in own_rules + own_fr:
         seen.setdefault(r.id, (pid, "own"))
     if mreading is not None:
-        ids_now = {r.id for r in rules}
+        ids_now = {r.id for r in all_rules_out}
         cleared = {}
         for key in ("docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule"):
             ref = getattr(mreading, key)
@@ -843,6 +974,10 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         if cleared:
             from dataclasses import replace as _dc_replace
             mreading = _dc_replace(mreading, **cleared)
+        skip = frozenset(f for name, d in decls.items() for f in d["reads"] if values.get(name) is False)    # D-J4: narrow only
+        if skip != mreading.skip_fields:
+            from dataclasses import replace as _dc_replace
+            mreading = _dc_replace(mreading, skip_fields=skip)
     uniq, seen_s = [], set()
     for x in structural:
         if x["id"] not in seen_s:
@@ -857,7 +992,9 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
                    composed_of=tuple(composed), structural=tuple(structural), lists=lists,
                    disabled=tuple(dict.fromkeys(inh_disabled + disable)), replaced=tuple(dict.fromkeys(inh_replaced + replaced)),
                    effective_order=tuple(r.id for r in rules) + tuple(r.id for r in fr_out),
-                   overridden=tuple(dict.fromkeys([x for b in bases for x in b.overridden] + list(overrides))))
+                   overridden=tuple(dict.fromkeys([x for b in bases for x in b.overridden] + list(overrides))),
+                   settings_decl=decls, settings=values, settings_set=tuple(dict.fromkeys([x for b in bases for x in b.settings_set] + list(own_values))),
+                   all_rules=all_rules_out, all_file_roles=all_fr_out)
 
 
 def load_profile(profile_id_or_path: str, profiles_dir: Path | str | None = None, _stack: tuple = ()) -> Profile:

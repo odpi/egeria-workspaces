@@ -6,7 +6,7 @@
 # (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). The component rules are
 # FROZEN as in 0.1.0; 0.2.0 adds only the file_roles layer below (path rules, no file content), which can neither change a component nor un-hide a file.
 profile_id: code-repo-conventions
-version: 0.10.0
+version: 0.11.0
 status: proposed
 applies_to: code-repo
 extends: [code-repo]
@@ -28,6 +28,16 @@ lists:
   gradle-build-files: [build.gradle, build.gradle.kts, settings.gradle, settings.gradle.kts, gradle.properties]
   docs-site-files: [mkdocs.yml, mkdocs.yaml, docusaurus.config.js, docusaurus.config.ts, docusaurus.config.mjs, docusaurus.config.cjs, conf.py, antora.yml, book.toml, _config.yml, package.json, pom.xml, build.gradle, build.gradle.kts, Makefile]
   docs-extensions: [.md, .mdx, .rst, .adoc, .asciidoc, .txt, .ipynb]
+settings:
+  # J3: named switches whose DEFAULTS are Dan's rulings (D-J1). A profile that extends this one may set them (`settings: {name: value}`); only the defaults
+  # are held-out-confirmed. Fixed, never settings: the tooling principle of R-tool-package, the test-project principle rules, the names-only promise and
+  # the manifest-reading scope. A setting can only NARROW what is read (D-J4).
+  scripts-are-tooling: {type: bool, default: true, doc: "a top-level scripts folder (and a manifest project under a scripts segment) is tooling, not a component (Phase 1h H1). Off: scripts folders are judged by the other rules"}
+  lint-config-is-tooling: {type: bool, default: true, doc: "a top-level config folder holding only linter or style configuration is tooling (Phase 1h H2). Off: every top-level config folder is a configuration component"}
+  docs-min-files: {type: int, default: 2, doc: "the number of documentation files that makes a docs folder (or src/docs, src/main/docs) a documentation component when it holds no site or build configuration (Phase 1g G2)"}
+  private-test-packages-internal: {type: bool, default: true, reads: [package-json.private], doc: "a private, test-named npm package is test support, not a component (Phase 1i I1/I1b). Off: the rule is inactive AND the private field of package.json is not read"}
+  gradle-test-projects-internal: {type: bool, default: true, doc: "a test-named Gradle project with no main source set and more than its build files is a test project, not a component (Phase 1i I1-G)"}
+  src-docs-is-documentation: {type: bool, default: true, doc: "src/docs or src/main/docs at the repository root is a documentation component (Phase 1i I3)"}
 rules:
   - id: R-conv-tests
     match: {path_glob: "*", name_regex: ['(?i)^(?:{$test-folder-names})$|(?:_|-)tests$']}
@@ -79,6 +89,7 @@ rules:
     tuned_on: ["kafka (N7, spent)"]
   - id: R-fx-gradle-test-project
     match: {has_file: [build.gradle, build.gradle.kts], test_project: {name_words: $test-words, not_child_dir: {parent: src, regex: ['^main$', 'Main$']}, other_than: $gradle-build-files}}
+    when: {gradle-test-projects-internal: true}
     assign: {role: fixture, kind: test-project}
     grain: dir
     file_scope: true
@@ -87,7 +98,7 @@ rules:
     evidence: "a Gradle project (a directory holding build.gradle or build.gradle.kts, not the repository root) is an internal test project, not a component, when ALL of: a word of its directory name, split at - and _, is test, tests or testing (case-insensitive: x-codegen-test, x-protocol-test-codegen, test-x; not contest, attestation, latest-x); it has NO src/main folder and no src/<x>Main folder (a child of src whose name ends in a capitalised Main, such as the Kotlin Multiplatform commonMain or jvmMain; Phase 1i I1b): it ships no code; and it holds at least one file or folder other than build.gradle, build.gradle.kts, settings.gradle, settings.gradle.kts and gradle.properties (a project that is only a build file is a dependency starter or a BOM and stays a component). A Gradle project nested anywhere below such a project is one too, whatever its name. Names and folder presence only; no build file is opened. The test-folder and fixture rules above keep precedence. Its files keep their file roles (a file-role scope). Known limits: an internal test-support library WITH src/main (x-test-utils) stays a component; a test project that holds only its build file stays a component (it cannot be told from a starter)"
     tuned_on: ["Phase 1i I1-G (Dan's pick B; clause (c) added by the Architect against the starter ruling; the word list and the build-file list are closed lists, not fitted to a repository)", "Phase 1i I1b (the Architect's ruling on the I4 fit: a Kotlin Multiplatform main source set counts as src/main; a naming convention, not fitted to a repository)"]
   - id: R-conv-docs
-    match: {path_glob: [docs, doc, documentation], min_content: {files: $docs-site-files, min_files: 2, extensions: $docs-extensions}}
+    match: {path_glob: [docs, doc, documentation], min_content: {files: $docs-site-files, min_files: $docs-min-files, extensions: $docs-extensions}}
     assign: {role: component, kind: documentation}
     grain: component
     basis: convention
@@ -95,7 +106,8 @@ rules:
     evidence: "a top-level docs, doc or documentation directory holds the repository's documentation ONLY when it holds a site or build configuration file (mkdocs.yml or .yaml, docusaurus.config.js/ts/mjs/cjs, conf.py, antora.yml, book.toml, _config.yml, package.json, pom.xml, build.gradle(.kts) or Makefile) directly or in a direct child folder (docs/source/conf.py), or at least 2 documentation files (.md, .mdx, .rst, .adoc, .asciidoc, .txt, .ipynb) anywhere below it; names only, no file is opened. The threshold of 2 is a judgement: a single notes file is not a documentation component. Otherwise the folder is not a component; its files are still classified and counted. Known limits: a site config deeper than one level below the folder is not seen (the folder is then judged by its documentation files); 2 notes make a component"
     tuned_on: [trellis, datahub, "Phase 1g G2 (minimum content; the file names and extensions are closed lists of documentation tools, not fitted to a repository)"]
   - id: R-conv-src-docs
-    match: {path_glob: [src/docs, src/main/docs], min_content: {files: $docs-site-files, min_files: 2, extensions: $docs-extensions}}
+    match: {path_glob: [src/docs, src/main/docs], min_content: {files: $docs-site-files, min_files: $docs-min-files, extensions: $docs-extensions}}
+    when: {src-docs-is-documentation: true}
     assign: {role: component, kind: documentation}
     grain: component
     basis: convention
@@ -104,6 +116,7 @@ rules:
     tuned_on: ["Phase 1i I3 (Dan's ruling 3: a documentation guide under src/main/docs counts as documentation; the two paths and the content lists are those of R-conv-docs, not fitted to a repository)"]
   - id: R-conv-config-lint
     match: {path_glob: [config, configs, conf], only_files: {child_dirs: $lint-config-dirs, names: $lint-config-names}}
+    when: {lint-config-is-tooling: true}
     assign: {role: tooling, kind: lint-configuration}
     grain: dir
     file_scope: true
@@ -121,6 +134,7 @@ rules:
     tuned_on: [trellis]
   - id: R-conv-scripts
     match: {path_glob: "*", segment_regex: ['(?i)^scripts?$|^scripts?[-_]']}
+    when: {scripts-are-tooling: true}
     assign: {role: tooling, kind: maintenance-scripts}
     grain: dir
     file_scope: true
@@ -129,7 +143,7 @@ rules:
     evidence: "a top-level directory named scripts or script, or starting scripts-, scripts_, script- or script_ (case-insensitive, whole segment), holds the repository's own maintenance scripts: it is tooling, not a component. Its files keep their file roles (it is a file-role scope, as a component directory is). Known limit: a scripts folder that is really a shipped package (a published CLI under scripts/) becomes tooling; names cannot tell the difference"
     tuned_on: [trellis, superset, "Phase 1h H1 (Dan's ruling: scripts/ is tooling; the name forms are a closed list, not fitted to a repository)"]
   - id: R-tool-package
-    match: {segment_regex: ['(?i)^(?:tools|tooling|devtools|dev-tools|build-tools|buildsrc|_ext|scripts|script)$|^scripts?[-_]|^(?:\.github|\.circleci|\.buildkite|ci|\.ci|\.teamcity|\.gitlab|\.azure-pipelines|\.azuredevops|\.woodpecker|\.tekton|\.semaphore|\.jenkins)$'], has_file: $manifest-files}
+    match: {segment_regex: ['(?i)^(?:tools|tooling|devtools|dev-tools|build-tools|buildsrc|_ext)$|^(?:\.github|\.circleci|\.buildkite|ci|\.ci|\.teamcity|\.gitlab|\.azure-pipelines|\.azuredevops|\.woodpecker|\.tekton|\.semaphore|\.jenkins)$', {when: {scripts-are-tooling: true}, item: '(?i)^(?:scripts|script)$|^scripts?[-_]'}], has_file: $manifest-files}
     assign: {role: tooling, kind: tooling-package}
     grain: dir
     basis: convention
@@ -162,6 +176,7 @@ rules:
     tuned_on: [superset]
   - id: R-ts-private-package
     match: {has_file: package.json, manifest_private: true, name_word: $test-words, not_path_segment: $app-folders}
+    when: {private-test-packages-internal: true}
     assign: {role: test-support, kind: private-package}
     grain: dir
     file_scope: true

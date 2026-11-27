@@ -139,7 +139,7 @@ def test_the_composite_profile_sees_the_lists():
 
 
 def test_the_profile_versions_are_unchanged_by_j0():
-    assert load_profile("code-repo-conventions", PROFILES).version == "0.10.0" and load_profile("code-repo", PROFILES).version == "0.5.0"
+    assert load_profile("code-repo-conventions", PROFILES).version == "0.11.0" and load_profile("code-repo", PROFILES).version == "0.5.0"
     assert load_profile("docs-site", PROFILES).version == "0.5.0"
 
 
@@ -386,3 +386,231 @@ def test_removing_a_test_folder_name_changes_both_test_folder_rules(tmp_path):
 def test_the_default_profile_keeps_qa_and_e2e_as_before(tmp_path):
     r = run(tmp_path, load_profile("code-repo-conventions", PROFILES), {"pyproject.toml": "[project]\nname='r'\n", "qa/x/package.json": '{"name": "x"}', "e2e/a.ts": "x"})
     assert "qa/x" in r.allc and r.f["e2e"]["rule_id"] == "R-conv-tests"
+
+
+# ======================================================================== J3 ========================================================================================
+DEFAULTS = {"scripts-are-tooling": True, "lint-config-is-tooling": True, "docs-min-files": 2, "private-test-packages-internal": True,
+            "gradle-test-projects-internal": True, "src-docs-is-documentation": True}
+PYR = {"pyproject.toml": "[project]\nname='r'\n"}
+
+
+def mine(tmp_path, **settings):
+    return overlay(tmp_path, "mine", extends=["code-repo-conventions"], settings=settings)
+
+
+def test_the_shipped_settings_and_their_defaults():
+    p = load_profile("code-repo-conventions", PROFILES)
+    assert p.settings == DEFAULTS and set(p.settings_decl) == set(DEFAULTS) and p.settings_set == () and p.version == "0.11.0"
+    assert all(d["doc"] for d in p.settings_decl.values()) and p.settings_decl["private-test-packages-internal"]["reads"] == ("package-json.private",)
+    assert p.manifest_reading.skip_fields == frozenset()
+    assert [r.id for r in p.rules] == [r.id for r in p.all_rules]                # every rule is active at the defaults
+    c = compose_profiles("code-repo-conventions,docs-site", PROFILES)
+    assert c.settings == DEFAULTS
+
+
+def test_setting_every_default_explicitly_changes_nothing(tmp_path):
+    p = mine(tmp_path, **DEFAULTS)
+    d = load_profile("code-repo-conventions", PROFILES)
+    assert [r.id for r in p.rules] == [r.id for r in d.rules] and p.settings == DEFAULTS and p.settings_set == tuple(DEFAULTS)
+    assert [(r.id, r.match) for r in p.rules] == [(r.id, r.match) for r in d.rules]
+
+
+# ---- each setting, both states, on a synthetic tree
+def test_scripts_are_tooling_on_and_off(tmp_path):
+    files = {**PYR, "scripts/a.sh": "x", "scripts-ts/package.json": '{"name": "x"}', "scripts-ts/src/x.ts": "x"}
+    on = run(tmp_path / "on", load_profile("code-repo-conventions", PROFILES), files)
+    assert on.f["scripts"]["rule_id"] == on.f["scripts-ts"]["rule_id"] == "R-conv-scripts" and "scripts-ts/src" not in on.allc
+    off = run(tmp_path / "off", mine(tmp_path, **{"scripts-are-tooling": False}), files)
+    assert "scripts" not in off.f and off.f["scripts-ts"]["rule_id"] == "R-comp-package-json" and off.f["scripts-ts/src"]["rule_id"] == "R-conv-node-src"
+    tools = run(tmp_path / "tools", mine(tmp_path, **{"scripts-are-tooling": False}), {**PYR, "tools/package.json": '{"name": "t"}'})
+    assert tools.f["tools"]["rule_id"] == "R-tool-package"                       # the tooling principle itself is fixed
+
+
+def test_lint_config_is_tooling_on_and_off(tmp_path):
+    files = {**PYR, "config/checkstyle.xml": "x", "config/suppressions.xml": "x"}
+    assert run(tmp_path / "on", load_profile("code-repo-conventions", PROFILES), files).f["config"]["rule_id"] == "R-conv-config-lint"
+    off = run(tmp_path / "off", mine(tmp_path, **{"lint-config-is-tooling": False}), files)
+    assert off.f["config"]["rule_id"] == "R-conv-config" and "config" in off.allc
+
+
+@pytest.mark.parametrize("n,docs_one,docs_two", [(2, False, True), (1, True, True), (3, False, False)])
+def test_docs_min_files(tmp_path, n, docs_one, docs_two):
+    p = load_profile("code-repo-conventions", PROFILES) if n == 2 else mine(tmp_path, **{"docs-min-files": n})
+    r1 = run(tmp_path / "one", p, {**PYR, "docs/a.md": "x", "src/main/docs/a.adoc": "x"})
+    r2 = run(tmp_path / "two", p, {**PYR, "docs/a.md": "x", "docs/b.md": "x", "src/main/docs/a.adoc": "x", "src/main/docs/b.adoc": "x"})
+    assert ("docs" in r1.allc) is docs_one and ("src/main/docs" in r1.allc) is docs_one
+    assert ("docs" in r2.allc) is docs_two and ("src/main/docs" in r2.allc) is docs_two
+    by = {r.id: r for r in p.rules}
+    assert by["R-conv-docs"].content_min == by["R-conv-src-docs"].content_min == n
+
+
+def reads_of(tmp_path, p, files):
+    root = tmp_path / "t"
+    for rel, content in files.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(content)
+    lst = tmp_path / "t.tsv"
+    lst.write_text("".join(f"{k}\t{len(v)}\n" for k, v in sorted(files.items())))
+    rec = Recognizer(p, blob_source=mf.FileSource(str(root)))
+    rec.run(lst, tmp_path / "o")
+    return rec
+
+
+def test_private_test_packages_on_and_off_and_off_does_not_read_the_field(tmp_path):
+    files = {"package.json": '{"name": "r"}', "x-test/package.json": '{"name": "x", "private": true}', "n-test/package.json": '{"private": true}'}
+    on = run(tmp_path / "on", load_profile("code-repo-conventions", PROFILES), files)
+    assert on.f["x-test"]["rule_id"] == "R-ts-private-package" and "x-test" not in on.allc
+    p = mine(tmp_path, **{"private-test-packages-internal": False})
+    assert p.manifest_reading.skip_fields == frozenset({"package-json.private"}) and "R-ts-private-package" not in [r.id for r in p.rules]
+    off = run(tmp_path / "off", p, files)
+    assert "x-test" in off.allc and off.f["x-test"]["rule_id"] == "R-comp-package-json"
+    rec = reads_of(tmp_path, p, files)
+    assert all(d.private is False for ds in rec.reading.decls.values() for d in ds)          # D-J4: the field is not extracted at all
+    assert "n-test/package.json" not in rec.reading.decls                                    # a package.json that says only private declares nothing now
+    rec_on = reads_of(tmp_path / "on2", load_profile("code-repo-conventions", PROFILES), files)
+    assert rec_on.reading.log == rec.reading.log                                             # the same files are opened either way
+
+
+def test_gradle_test_projects_on_and_off(tmp_path):
+    files = {"build.gradle": "", "settings.gradle": "rootProject.name = 'r'\n", "x-codegen-test/build.gradle": "", "x-codegen-test/model/a.smithy": "x"}
+    assert run(tmp_path / "on", load_profile("code-repo-conventions", PROFILES), files).f["x-codegen-test"]["rule_id"] == "R-fx-gradle-test-project"
+    off = run(tmp_path / "off", mine(tmp_path, **{"gradle-test-projects-internal": False}), files)
+    assert "x-codegen-test" in off.allc and off.f["x-codegen-test"]["rule_id"] == "R-comp-gradle"
+
+
+def test_src_docs_is_documentation_on_and_off(tmp_path):
+    files = {**PYR, "src/main/docs/a.adoc": "x", "src/main/docs/b.adoc": "x"}
+    assert "src/main/docs" in run(tmp_path / "on", load_profile("code-repo-conventions", PROFILES), files).allc
+    off = run(tmp_path / "off", mine(tmp_path, **{"src-docs-is-documentation": False}), files)
+    assert "src/main/docs" not in off.allc and "src/main/docs" not in off.f
+
+
+def test_test_folder_names_is_a_list_not_a_switch():
+    p = load_profile("code-repo-conventions", PROFILES)
+    assert "test-folder-names" in p.lists and "test-folder-names" not in p.settings
+
+
+# ---- `when:` and settings across extends
+def test_an_inactive_rule_comes_back_when_a_further_profile_turns_the_setting_on(tmp_path):
+    overlay(tmp_path, "off", extends=["code-repo-conventions"], settings={"scripts-are-tooling": False})
+    write(tmp_path, "on", {"profile_id": "on", "version": "0.1.0", "status": "proposed", "applies_to": "code-repo", "roles": ["component"],
+                           "relevance": {"primary": ["component"], "supporting": [], "hidden": []}, "rules": [], "extends": ["off"],
+                           "settings": {"scripts-are-tooling": True}})
+    p = load_profile("on", tmp_path)
+    off = load_profile("off", tmp_path)
+    assert "R-conv-scripts" not in [r.id for r in off.rules] and "R-conv-scripts" in [r.id for r in off.all_rules]
+    assert [r.id for r in p.rules] == [r.id for r in load_profile("code-repo-conventions", PROFILES).rules]
+    assert len({r.id: r for r in p.rules}["R-tool-package"].segment_res) == 2 and len({r.id: r for r in off.rules}["R-tool-package"].segment_res) == 1
+    assert p.settings_set == ("scripts-are-tooling",)
+
+
+def sprof(tmp_path, name="s", **doc):
+    return prof(tmp_path, name=name, **doc)
+
+
+DECL = {"flag": {"type": "bool", "default": True, "doc": "d"}, "n": {"type": "int", "default": 2, "doc": "d"}, "names": {"type": "list", "default": ["a"], "doc": "d"}}
+
+
+def test_when_and_setting_references_in_a_synthetic_profile(tmp_path):
+    p = sprof(tmp_path, settings=DECL, rules=[rule({"has_file": "a"}, rid="ON"), {**rule({"has_file": "b"}, rid="OFF"), "when": {"flag": False}},
+                                             rule({"path_glob": "docs", "min_content": {"files": ["x"], "min_files": "$n", "extensions": [".md"]}}, rid="D"),
+                                             rule({"has_file": ["z", {"when": {"flag": True}, "item": "w"}, {"when": {"flag": False}, "item": "v"}]}, rid="C"),
+                                             rule({"has_file": "$names"}, rid="L")])
+    by = {r.id: r for r in p.rules}
+    assert set(by) == {"ON", "D", "C", "L"} and by["D"].content_min == 2 and by["C"].has_files == frozenset({"z", "w"}) and by["L"].has_files == frozenset({"a"})
+    write(tmp_path, "c", {**BASE, "profile_id": "c", "extends": ["s"], "settings": {"flag": False, "n": 5, "names": ["q", "r"]}, "rules": []})
+    c = load_profile("c", tmp_path)
+    cb = {r.id: r for r in c.rules}
+    assert set(cb) == {"ON", "OFF", "D", "C", "L"} and cb["D"].content_min == 5 and cb["C"].has_files == frozenset({"z", "v"}) and cb["L"].has_files == frozenset({"q", "r"})
+    assert c.settings == {"flag": False, "n": 5, "names": ["q", "r"]} and c.settings_set == ("flag", "n", "names")
+
+
+@pytest.mark.parametrize("settings", [
+    {"x": {"type": "float", "default": 1, "doc": "d"}},
+    {"x": {"type": "bool", "default": 1, "doc": "d"}},
+    {"x": {"type": "int", "default": True, "doc": "d"}},
+    {"x": {"type": "list", "default": [], "doc": "d"}},
+    {"x": {"type": "bool", "default": True, "doc": ""}},
+    {"x": {"type": "bool", "default": True}},
+    {"x": {"type": "bool", "default": True, "doc": "d", "extra": 1}},
+    {"Bad": {"type": "bool", "default": True, "doc": "d"}},
+    {},
+])
+def test_a_bad_setting_declaration_is_rejected(tmp_path, settings):
+    with pytest.raises(ProfileError):
+        sprof(tmp_path, settings=settings, rules=[rule({"has_file": "a"})])
+
+
+def test_setting_values_are_validated(tmp_path):
+    sprof(tmp_path, settings=DECL, rules=[rule({"has_file": "a"})])
+    for vals, msg in (({"nope": True}, "not a setting declared"), ({"flag": "yes"}, "not a bool"), ({"n": 2.5}, "not a int"), ({"names": "a"}, "not a list")):
+        write(tmp_path, "c", {**BASE, "profile_id": "c", "extends": ["s"], "settings": vals, "rules": []})
+        with pytest.raises(ProfileError, match=msg):
+            load_profile("c", tmp_path)
+    write(tmp_path, "c", {**BASE, "profile_id": "c", "extends": ["s"], "settings": {"flag": {"type": "bool", "default": False, "doc": "d"}}, "rules": []})
+    with pytest.raises(ProfileError, match="already declared"):
+        load_profile("c", tmp_path)
+
+
+@pytest.mark.parametrize("r,msg", [
+    ({**rule({"has_file": "a"}), "when": {"nope": True}}, "not a declared setting"),
+    ({**rule({"has_file": "a"}), "when": {"flag": 1}}, "type"),
+    ({**rule({"has_file": "a"}), "when": {}}, "when needs"),
+    (rule({"has_file": "$flag"}), "bool setting"),
+    (rule({"has_file": ["a", {"when": {"nope": True}, "item": "b"}]}), "not a declared setting"),
+])
+def test_bad_when_and_references_are_rejected(tmp_path, r, msg):
+    with pytest.raises(ProfileError, match=msg):
+        sprof(tmp_path, settings=DECL, rules=[r])
+
+
+def test_a_setting_and_a_list_may_not_share_a_name(tmp_path):
+    with pytest.raises(ProfileError, match="share"):
+        sprof(tmp_path, lists={"flag": ["a"]}, settings=DECL, rules=[rule({"has_file": "a"})])
+
+
+# ---- D-J4: narrow only. No setting, list or override can add a reader, a manifest field or a content read.
+READING = {"readers": ["package-json"], "member_rule": {"id": "M", "role": "component", "kind": "k", "basis": "manifest-content", "confidence": "high", "evidence": "e"},
+           "aggregator_rule": {"id": "AG", "role": "tooling", "kind": "k", "basis": "manifest-content", "confidence": "high", "evidence": "e"}}
+
+
+@pytest.mark.parametrize("reading", [
+    {**READING, "readers": "$my-readers"},
+    {**READING, "readers": ["package-json", "$more"]},
+    {**READING, "readers": ["{$more}"]},
+    {**READING, "max_file_bytes": "$n"},
+])
+def test_manifest_reading_may_not_name_a_list_or_a_setting(tmp_path, reading):
+    with pytest.raises(ProfileError, match="D-J4"):
+        sprof(tmp_path, lists={"my-readers": ["mkdocs"], "more": ["mkdocs"]}, settings=DECL, manifest_reading=reading, rules=[rule({"has_file": "a"})])
+
+
+def test_an_overlay_cannot_reach_the_readers_through_a_list_override(tmp_path):
+    # the readers are never resolved from a list, so overriding a list changes no reader: shown on the shipped profile
+    p = overlay(tmp_path, "mine", extends=["code-repo-conventions"], lists={"manifest-files": {"add": ["mkdocs.yml"]}})
+    d = load_profile("code-repo-conventions", PROFILES)
+    assert p.manifest_reading.readers == d.manifest_reading.readers and p.manifest_reading.skip_fields == d.manifest_reading.skip_fields
+    with pytest.raises(ProfileError, match="D-J4"):
+        overlay(tmp_path, "mine2", extends=["code-repo-conventions"], manifest_reading={**READING, "readers": "$manifest-files"})
+
+
+@pytest.mark.parametrize("decl,msg", [
+    ({"type": "bool", "default": True, "doc": "d", "reads": ["package-json.version"]}, "narrow"),     # a field not read today
+    ({"type": "bool", "default": True, "doc": "d", "reads": ["mkdocs.nav"]}, "narrow"),
+    ({"type": "bool", "default": False, "doc": "d", "reads": ["package-json.private"]}, "default is true"),   # off by default = ON would add the read
+    ({"type": "int", "default": 1, "doc": "d", "reads": ["package-json.private"]}, "bool"),
+    ({"type": "bool", "default": True, "doc": "d", "reads": []}, "narrow"),
+    ({"type": "bool", "default": True, "doc": "d", "readers": ["mkdocs"]}, "unknown key"),            # no way to name a reader
+    ({"type": "bool", "default": True, "doc": "d", "fields": ["package-json.version"]}, "unknown key"),
+])
+def test_a_setting_cannot_widen_what_is_read(tmp_path, decl, msg):
+    with pytest.raises(ProfileError, match=msg):
+        sprof(tmp_path, settings={"s1": decl}, rules=[rule({"has_file": "a"})])
+
+
+def test_turning_a_read_setting_on_again_reads_exactly_what_the_default_reads(tmp_path):
+    overlay(tmp_path, "off", extends=["code-repo-conventions"], settings={"private-test-packages-internal": False})
+    write(tmp_path, "on", {"profile_id": "on", "version": "0.1.0", "status": "proposed", "applies_to": "code-repo", "roles": ["component"],
+                           "relevance": {"primary": ["component"], "supporting": [], "hidden": []}, "rules": [], "extends": ["off"],
+                           "settings": {"private-test-packages-internal": True}})
+    assert load_profile("on", tmp_path).manifest_reading.skip_fields == frozenset() == load_profile("code-repo-conventions", PROFILES).manifest_reading.skip_fields

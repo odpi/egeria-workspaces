@@ -284,7 +284,7 @@ def test_the_i1_rules_carry_provenance_and_the_known_limits():
     by = {x.id: x for x in p.rules}
     ids = [x.id for x in p.rules]
     g, t = by["R-fx-gradle-test-project"], by["R-ts-private-package"]
-    assert p.version == "0.10.0" and load_profile("code-repo", PROFILES).version == "0.5.0"
+    assert p.version == "0.11.0" and load_profile("code-repo", PROFILES).version == "0.5.0"
     assert g.role == "fixture" and g.kind == "test-project" and g.grain == "dir" and g.file_scope and "Known limits" in g.evidence
     assert t.role == "test-support" and t.kind == "private-package" and t.grain == "dir" and t.file_scope and "Known limits" in t.evidence
     assert any(x.startswith("Phase 1i I1-G") for x in g.tuned_on) and any(x.startswith("Phase 1i I1 ") for x in t.tuned_on)

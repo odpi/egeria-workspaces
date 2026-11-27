@@ -583,7 +583,7 @@ class Recognizer:
 
     def _read_manifests(self, mr, candidates: list) -> None:
         self.reading = mf.read_manifests(candidates, self.blob_source, set(mr.readers) - {"gitmodules"}, self._file_is_hidden, max_file_bytes=mr.max_file_bytes,
-                                         max_blobs=mr.max_blobs, max_total_bytes=mr.max_total_bytes, out=self.reading)
+                                         max_blobs=mr.max_blobs, max_total_bytes=mr.max_total_bytes, out=self.reading, skip=mr.skip_fields)
 
     @staticmethod
     def _safe_rel(p):
