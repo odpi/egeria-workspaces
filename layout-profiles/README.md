@@ -560,6 +560,31 @@ Cause (the D6 gate-1 recorded exception, spring-boot, now spent): 109 of 114 lab
 
 Tune-set recall does not drop (1.00 on trellis, superset and datahub). The 146 unlabelled Maven fixtures under `src/intTest` and `src/dockerTest` are unchanged (out of scope), and so is the unlabelled count (147). The 5 labelled false positives left on spring-boot are not caused by this rule. The after figures are a fit: E1 was tuned after seeing D6, so it counts as fixed only after E3 (a fresh held-out code repository, Architect only).
 
+## Phase 1f (F1): a camelCase test source set (`code-repo-conventions` 0.7.0)
+
+Cause (the gap Phase 1e left open as a known limit): test source-set folders with camelCase names (`intTest`, `dockerTest`, `functionalTest`, ...) were not test segments, so manifest fixture projects nested under them stayed component candidates (on spring-boot, D6, spent: 146 Maven fixture projects under `src/intTest/projects` and `src/dockerTest/projects`).
+
+- **F1, one structural rule.** A directory segment is a test segment for N3(a), so a manifest project with it in its path (or a declared member with no manifest) is a `fixture` by `R-fx-test-project`, only when BOTH: (i) its PARENT segment is exactly `src`; and (ii) its name is camelCase ending in a capitalized `Test` or `Tests` after a lower-case start, or starts with a lower-case `test` or `tests` followed by capitalized words. Case-sensitive: `^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*)*Tests?$` or `^tests?(?:[A-Z][a-z0-9]*)+$`. The match is on the segment and its parent only; there is no word list of prefixes.
+- **New match key** `child_segment_regex: {parent: [names], regex: [regexes]}`: a segment whose parent segment is exactly one of `parent` matches one of `regex`. With `segment_regex` it forms ONE segment test (either may match), so the rule id stays `R-fx-test-project` and the N3 member exclusion and the N6 structural block see it too. The directory's own name counts as a segment, as for `segment_regex`: a project whose OWN directory is `.../src/intTest` (a manifest in the source-set folder itself) is a fixture. The source-set folder without a manifest is not a project and is untouched, as before.
+- **Unchanged:** `testFixtures` (already listed, matched as before); `mod/intTest/...` (parent not `src`); `src/main`, `src/latest`, `src/contest`, `src/attest`, `src/protest` (no capital `T`); `src/IntTest` (does not start lower-case); `src/testing` (already a test segment). N1 to N6, D1 to D4 and E1 are untouched. Finding ids of unaffected components do not change (the profile's major version is unchanged).
+- **Known limits (stated):** Maven's `src/it` (the invoker plugin's integration-test projects) is not matched: `it` is not camelCase, and a two-letter rule is a separate call for Dan. A source set named without a test word (`src/e2e/...`, `src/benchmarks/...`) is not matched. A project nested under a Kotlin Multiplatform test source set (`commonTest`, `jvmTest`) is treated as a fixture; this is intended.
+- No name from a held-out or spent repository is in any rule: the Phase 1e assertion is extended, and the rules' match values and the recognizer sources contain none of `smoke`, `spring`, `integration-test`, `system-test`, `intTest` or `dockerTest` (those appear only in synthetic test paths). `tuned_on` on `R-fx-test-project` adds `spring-boot (D6, spent)`.
+
+**F2, re-score (a FIT, not a result; candidates / TP / labelled-FP / unlabelled; before = ef5e2b14, the Phase 1e code; the same path lists, profiles and blob sources as E2):**
+
+| repo (key) | list | before | after | changed candidates |
+|---|---|---|---|---|
+| spring-boot (v1 db483c08), spent | all | 481/329/151/1, recall 1.00, precision 0.69 | 335/329/5/1, recall 1.00, precision 0.99 | 146 removed: 114 under `build-plugin/spring-boot-maven-plugin/src/intTest/projects`, 32 under `.../src/dockerTest/projects`; none added |
+| spring-boot | top | 480/329/151/0 | 334/329/5/0, precision 0.99 | the same 146 removed |
+| kafka (b1bdaf54), spent | all, top | 36/30/1/5, 35/30/1/4 | same | none |
+| trellis | all, top | 19/18/1/0, 18/18/0/0 | same | none |
+| superset (42, composite) | all, top | 49/42/4/3, 46/42/3/1 | same | none |
+| datahub | all, top | 79/66/8/5, 77/66/8/3 | same | none |
+| egeria-workspaces dogfood | all, top | 27/19/8/0, 23/19/4/0 | same | none |
+| egeria-python dogfood | all, top | 9/9/0/0 | same | none |
+
+Tune-set recall does not drop (1.00 on trellis, superset and datahub). The spring-boot "before" row is scored against key v1 (db483c08), which labels the 146 fixture projects `excluded`: that is why it reads 151 labelled false positives where E2 (against a1aaf8a9) read 5 labelled and 147 unlabelled. The before outputs are byte-identical to the E2 after outputs. After F1 the 146 leave the candidate list and the labelled false positives return to the 5 that F1 does not touch. One further change on spring-boot, outside the candidate lists: 14 Maven aggregator projects inside the same two source sets (`.../src/dockerTest/projects/build-image-multi-module` and 13 under `.../src/intTest/projects`, a pom with modules) were `M-aggregator` (role other, never candidates) and are now `R-fx-test-project` fixtures. No other finding changes in any repository except the copied `evidence` text of `R-fx-test-project` and the profile version (0.7.0) in findings, `classes.json` and the report header; finding ids are unchanged.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -604,3 +629,5 @@ N5: synthetic trees and the mkdocs tutorial sample; no held-out tree or key was 
 N6: the workspaces and egeria-python dogfood trees by git object database only (not held out); synthetic tests; no held-out tree or key was opened.
 
 Phase 1d: the kafka tree (spent) was listed by names and read for settings.gradle through the git object database as a fit; no unspent held-out tree or key was opened.
+
+Phase 1f: synthetic trees for F1; for F2 the spent spring-boot and kafka trees, the tune set and the two dogfood trees were read by names and through the git object database (the E2 path lists and commits) and scored only through the scorer; no unspent held-out tree or key was listed, opened or run.
