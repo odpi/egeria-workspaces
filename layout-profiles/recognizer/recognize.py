@@ -137,6 +137,9 @@ class Recognizer:
         self._content_at: dict = {}                   # directory -> the configuration names (of content_names) directly in it
         self._content_child: dict = {}                # directory -> the configuration names directly in one of its direct child folders
         self._content_count: dict = {}                # extension tuple -> {directory: number of files with one of those extensions anywhere below it}
+        # H2 (only_files): per rule id, directory -> [files below it, files below it that do NOT qualify] (names only; only directories the rule's path_glob allows)
+        self.only_rules = [r for r in self.dir_rules if r.only_files]
+        self._only_state: dict = {r.id: {} for r in self.only_rules}
         self.child_first: dict = {}                   # first segment of a has_child_dir path -> the paths that start with it
         self.nosource_names = set()
         for r in self.dir_rules:
@@ -203,6 +206,10 @@ class Recognizer:
             return False
         if r.name_res and not any(rx.search(name) for rx in r.name_res):
             return False
+        if r.only_files:
+            st = self._only_state[r.id].get(d)
+            if not st or st[1]:
+                return False
         if r.parent_not_roles and d:
             pc = self.claims.get(d[:d.rfind("/")] if "/" in d else "")
             if pc is not None and pc.role in r.parent_not_roles:
@@ -289,6 +296,19 @@ class Recognizer:
                     while a:
                         counts[a] = counts.get(a, 0) + 1
                         a = a[:a.rfind("/")] if "/" in a else ""
+            if self.only_rules:
+                psegs = path.split("/")
+                for r in self.only_rules:
+                    state = self._only_state[r.id]
+                    for i in range(1, len(psegs)):
+                        a = "/".join(psegs[:i])
+                        if r.globs and not any(g.match(a) for g in r.globs):
+                            continue
+                        rest = psegs[i:]
+                        ok = (len(rest) >= 2 and rest[0].lower() in r.only_dirs) or any(rx.match(name) for rx in r.only_res)
+                        st = state.setdefault(a, [0, 0])
+                        st[0] += 1
+                        st[1] += 0 if ok else 1
             if mr is not None and name in mf.ALLOWED_FILES:
                 candidates_m.append((path, size))
                 if name == ".gitmodules":

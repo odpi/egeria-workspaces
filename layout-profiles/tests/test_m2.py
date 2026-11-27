@@ -200,7 +200,7 @@ def test_structural_rule_schema_errors():
 def test_every_m2_rule_names_the_repositories_that_motivated_it():
     p = load_profile("code-repo-conventions", PROFILES)
     own = [r for r in p.rules if r.origin == "code-repo-conventions"]
-    assert len(own) == 14 and all(r.tuned_on for r in own)
+    assert len(own) == 15 and all(r.tuned_on for r in own)          # Phase 1h H2 adds R-conv-config-lint
     assert all({t for t in r.tuned_on if not t.startswith(("Phase 1g ", "Phase 1h "))} <= {"trellis", "datahub", "superset"} for r in own if not r.id.startswith(("R-fx-", "R-tool-", "R-conv-test-group")))        # the Phase 1c rules name the spent M8 repositories too
     assert [x["id"] for x in p.structural] == ["S-workspace-siblings"] and p.structural[0]["tuned_on"] == ["superset"]
     one_repo = sorted(r.id for r in own if len(r.tuned_on) == 1)

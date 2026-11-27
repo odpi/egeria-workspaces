@@ -175,3 +175,118 @@ def test_file_scope_true_on_a_grain_dir_directory_rule_loads(tmp_path):
     assert r.file_scope and r.is_dir_rule
     assert not _prof(tmp_path, {"match": {"segment_regex": "x"}, "assign": {"role": "tooling"}, "grain": "dir", "file_scope": False}).rules[0].file_scope
     assert not _prof(tmp_path, {"match": {"segment_regex": "x"}, "assign": {"role": "tooling"}, "grain": "dir"}).rules[0].file_scope
+
+
+# ======================================================================== H2 ========================================================================================
+# A top-level config, configs or conf directory ALL of whose files are linter or style configuration (closed lists, names only) is tooling, kind lint-configuration.
+def config_tree(tmp_path, files, **kw):
+    return survey(tmp_path, {**PY_ROOT, **files}, **kw)
+
+
+# ---- (1) checkstyle + suppressions + codenarc: tooling, not a component
+def test_a_linter_only_config_is_tooling(tmp_path):
+    r = config_tree(tmp_path, {"config/checkstyle/checkstyle.xml": "x", "config/checkstyle/suppressions.xml": "x", "config/codenarc/codenarc.xml": "x"})
+    assert is_tooling(r, "config") and r.f["config"]["rule_id"] == "R-conv-config-lint" and r.f["config"]["kind"] == "lint-configuration"
+
+
+# ---- (2) config/ruff.toml alone: tooling
+def test_ruff_toml_alone_is_tooling(tmp_path):
+    r = config_tree(tmp_path, {"config/ruff.toml": "x"})
+    assert is_tooling(r, "config") and r.rule["config/ruff.toml"] == "F-config-ext"           # file_scope: the file keeps its role
+
+
+# ---- (3) a header template with linter files: tooling
+def test_header_templates_with_linter_files_are_tooling(tmp_path):
+    r = config_tree(tmp_path, {"config/HEADER": "x", "config/checkstyle/checkstyle.xml": "x", "config/spotless.license.java": "x"})
+    assert is_tooling(r, "config")
+
+
+# ---- (4) CONTROLS that stay components
+@pytest.mark.parametrize("files", [
+    {"config/broker.properties": "x", "config/log4j2.yaml": "x"},
+    {"config/config.json": "{}", "config/__init__.py": "x"},
+    {"config/templates/x.md": "x"},
+    {"config/checkstyle/checkstyle.xml": "x", "config/app.yaml": "x"},                         # a MIX stays a component
+])
+def test_controls_stay_components(tmp_path, files):
+    r = config_tree(tmp_path, files)
+    assert "config" in r.allc and r.f["config"]["role"] == "component" and r.f["config"]["rule_id"] in ("R-conv-config", "R-conv-root-import-package")
+
+
+# ---- (5) a tree with no config/ files has no config finding, as today (an empty folder is not in a path list)
+def test_no_config_files_no_finding(tmp_path):
+    r = config_tree(tmp_path, {"other/a.txt": "x"})
+    assert "config" not in r.f
+
+
+# ---- (6) x/config/... (not top level) is unaffected
+def test_a_nested_config_is_unaffected(tmp_path):
+    r = config_tree(tmp_path, {"x/config/checkstyle/checkstyle.xml": "x", "x/config/ruff.toml": "x"})
+    assert "x/config" not in r.f
+
+
+@pytest.mark.parametrize("top", ["config", "configs", "conf"])
+@pytest.mark.parametrize("d", ["checkstyle", "codenarc", "pmd", "spotbugs", "findbugs", "detekt", "ktlint", "spotless", "eslint", "stylelint", "prettier", "ruff", "flake8",
+                               "pylint", "mypy", "scalastyle", "scalafmt", "rubocop", "clang-format", "editorconfig", "codestyle", "CheckStyle"])
+def test_every_listed_child_folder_qualifies_any_file_below_it(tmp_path, top, d):
+    r = config_tree(tmp_path, {f"{top}/{d}/anything.bin": "x", f"{top}/{d}/deep/x.y": "x"})
+    assert is_tooling(r, top)
+
+
+@pytest.mark.parametrize("name", ["checkstyle-rules.xml", "my-suppressions.xml", "codenarc.xml", "pmd-ruleset.xml", "spotbugs-exclude.xml", "findbugs-exclude.xml", "detekt.yml",
+                                  "detekt-config.yaml", "ruff.toml", ".ruff.toml", ".flake8", ".pylintrc", "pylintrc", "mypy.ini", ".eslintrc", ".eslintrc.json", "eslint.config.mjs",
+                                  ".prettierrc", ".prettierrc.yaml", "prettier.config.js", ".stylelintrc.json", "stylelint.config.cjs", ".rubocop.yml", ".scalafmt.conf",
+                                  "scalastyle-config.xml", ".clang-format", ".clang-tidy", ".editorconfig", ".golangci.yml", ".golangci.yaml", "tslint.json", "biome.json",
+                                  "HEADER", "header.txt", "java-license-header.txt", "apache.license.header", "spotless.license.kt", "required-header.txt", "CHECKSTYLE.XML"])
+def test_every_listed_name_qualifies_at_any_depth(tmp_path, name):
+    r = config_tree(tmp_path, {f"config/{name}": "x", f"config/sub/{name}": "x"})
+    assert is_tooling(r, "config")
+
+
+@pytest.mark.parametrize("name", ["app.yaml", "checkstyle.json", "suppressions.txt", "ruff.cfg", "HEADERS", "license.txt", "eslint.json", "config.xml"])
+def test_names_outside_the_lists_keep_a_component(tmp_path, name):
+    r = config_tree(tmp_path, {"config/ruff.toml": "x", f"config/{name}": "x"})
+    assert "config" in r.allc
+
+
+def test_a_listed_folder_name_deeper_than_a_direct_child_does_not_qualify(tmp_path):
+    r = config_tree(tmp_path, {"config/x/checkstyle/a.bin": "x"})
+    assert "config" in r.allc
+
+
+# ---- (7) unaffected ids do not change; the composite behaves the same; the src rule sees the tooling claim too
+def test_h2_leaves_finding_ids_of_unaffected_components_unchanged(tmp_path):
+    files1 = {**PY_ROOT, "lib/pom.xml": "<project/>"}
+    r1 = survey(tmp_path, files1, out="r1", name="tree1")
+    r2 = survey(tmp_path, {**files1, "config/checkstyle/checkstyle.xml": "x"}, out="r2", name="tree2")
+    for d in ("core", "lib"):
+        rid = r1.f[d]["rule_id"]
+        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"code-repo-conventions@0|{rid}|{d}".encode()).hexdigest()[:16]
+
+
+def test_h2_in_the_composite_profile(tmp_path):
+    r = config_tree(tmp_path, {"config/checkstyle/checkstyle.xml": "x"}, profile="code-repo-conventions,docs-site")
+    assert is_tooling(r, "config")
+
+
+def test_linter_files_keep_their_config_role_without_a_root_component(tmp_path):
+    r = survey(tmp_path, {"core/pyproject.toml": "[project]\nname='c'\n", "config/.eslintrc": "x", "config/checkstyle/checkstyle.xml": "x"})
+    assert is_tooling(r, "config") and r.rule["config/.eslintrc"] == "F-config-component-dotfile"     # a dotfile directly in a component-like directory, as before H2
+
+
+def test_the_h2_rule_comes_before_r_conv_config_and_carries_provenance():
+    p = load_profile("code-repo-conventions", PROFILES)
+    ids = [r.id for r in p.rules]
+    r = {x.id: x for x in p.rules}["R-conv-config-lint"]
+    assert ids.index("R-conv-config-lint") == ids.index("R-conv-config") - 1
+    assert r.role == "tooling" and r.kind == "lint-configuration" and r.grain == "dir" and r.file_scope and r.only_files and "Known limits" in r.evidence
+    assert len(r.only_dirs) == 21 and len(r.only_res) == 36
+
+
+@pytest.mark.parametrize("bad", [{"child_dirs": ["a"]}, {"child_dirs": [], "names": []}, {"child_dirs": ["a/b"], "names": []}, {"child_dirs": "a", "names": []},
+                                 {"child_dirs": [], "names": [""]}, {"child_dirs": [], "names": ["x"], "extra": 1}, "x"])
+def test_only_files_is_validated(tmp_path, bad):
+    with pytest.raises(ProfileError):
+        _prof(tmp_path, {"match": {"path_glob": "config", "only_files": bad}, "assign": {"role": "tooling"}, "grain": "dir"})
+    r = _prof(tmp_path, {"match": {"path_glob": "config", "only_files": {"child_dirs": ["Lint"], "names": ["*.x"]}}, "assign": {"role": "tooling"}, "grain": "dir"}).rules[0]
+    assert r.only_files and r.is_dir_rule and r.only_dirs == frozenset({"lint"})

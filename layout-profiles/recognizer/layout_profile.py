@@ -27,8 +27,8 @@ GRAINS = ("subtree", "dir", "component")
 BASES = ("manifest", "manifest-content", "convention", "judgement")
 CONFIDENCES = ("high", "medium", "low")
 MATCH_KEYS = ("path_glob", "path_segment", "name", "name_regex", "extension", "has_file", "parent_has_file", "has_entry", "ancestor_has_entry",
-              "component_scope", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex", "child_segment_regex", "groups_projects", "group_segment_regex", "min_content", "parent_not_role")
-DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex", "child_segment_regex", "groups_projects", "group_segment_regex", "min_content", "parent_not_role")   # evaluated against a directory, not a file
+              "component_scope", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex", "child_segment_regex", "groups_projects", "group_segment_regex", "min_content", "parent_not_role", "only_files")
+DIR_ONLY_KEYS = ("has_file", "parent_has_file", "has_entry", "ancestor_has_entry", "no_source_files", "parent_name_token", "has_child_dir", "orphaned", "segment_regex", "child_segment_regex", "groups_projects", "group_segment_regex", "min_content", "parent_not_role", "only_files")   # evaluated against a directory, not a file
 COMPONENT_SCOPES = ("within", "root")                  # file rules only: under some component / directly in a component's directory
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
@@ -121,6 +121,9 @@ class Rule:
     content_files: frozenset = frozenset()       # directory rules (G2): min_content's `files`: a site or build configuration NAME directly in the directory or in a direct child folder
     content_min: int = 0                         # min_content's `min_files`: otherwise at least this many files with one of content_exts anywhere below the directory (names only)
     content_exts: tuple = ()                     # min_content's `extensions`
+    only_dirs: frozenset = frozenset()           # directory rules (H2): only_files' `child_dirs` (lower-case): any file below a DIRECT child folder of one of these names qualifies
+    only_res: tuple = ()                         # only_files' `names` (globs, case-insensitive): a file whose NAME matches one qualifies
+    only_files: bool = False                     # only_files is set: the directory holds at least one file and EVERY file anywhere below it qualifies (names only)
     parent_not_roles: frozenset = frozenset()    # directory rules (H1): the PARENT directory is not claimed by a rule whose assigned role is one of these
     file_scope: bool = False                     # H1: the directory this (grain dir) rule claims is a file-role scope, like a component directory, though it is not a component
     named_dir: bool = False                      # a subtree rule that names the directory (`name`) rather than a path: it is a directory rule
@@ -130,7 +133,7 @@ class Rule:
     def is_dir_rule(self) -> bool:
         """A rule is evaluated against DIRECTORIES when it tests a directory's files (has_file / parent_has_file / has_entry /
         ancestor_has_entry) or claims a component: its path_glob / path_segment / name / name_regex then apply to the directory itself."""
-        return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries or self.no_source or self.parent_tokens or self.child_dirs or self.orphaned or self.segment_res or self.child_seg_res or self.group_min or self.content_min or self.parent_not_roles) \
+        return bool(self.has_files or self.parent_has_files or self.has_entries or self.ancestor_entries or self.no_source or self.parent_tokens or self.child_dirs or self.orphaned or self.segment_res or self.child_seg_res or self.group_min or self.content_min or self.parent_not_roles or self.only_files) \
             or self.grain == "component" or self.named_dir
 
     @property
@@ -321,6 +324,18 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
                 or not _as_list(mc["extensions"]) or not all(isinstance(x, str) and len(x) > 1 and x.startswith(".") and "/" not in x for x in _as_list(mc["extensions"])):
             raise ProfileError(f"{where}: match.min_content needs a mapping with files (configuration file names, no '/'), min_files (an integer of 1 or more) and extensions ('.md', ...)")
         content_files, content_min, content_exts = frozenset(_as_list(mc["files"])), mc["min_files"], tuple(_as_list(mc["extensions"]))
+    only_dirs, only_res = frozenset(), []
+    if "only_files" in match:
+        of = match["only_files"]
+        if not isinstance(of, dict) or set(of) != {"child_dirs", "names"} or not isinstance(of["child_dirs"], list) or not isinstance(of["names"], list) \
+                or not (of["child_dirs"] or of["names"]) or not all(isinstance(x, str) and x and "/" not in x for x in of["child_dirs"] + of["names"]):
+            raise ProfileError(f"{where}: match.only_files needs a mapping with child_dirs (folder names) and names (file-name globs), lists of strings without '/', not both empty")
+        only_dirs = frozenset(x.lower() for x in of["child_dirs"])
+        for g in of["names"]:
+            try:
+                only_res.append(re.compile(glob_to_regex(g), re.IGNORECASE))
+            except re.error as exc:
+                raise ProfileError(f"{where}: bad only_files name glob {g!r}: {exc}") from exc
     file_scope = raw.get("file_scope", False)
     if not isinstance(file_scope, bool) or (file_scope and (not dir_rule or raw["grain"] != "dir" or role == "component")):
         raise ProfileError(f"{where}: file_scope is a boolean, and true only on a directory rule of grain dir whose role is not component")
@@ -346,7 +361,7 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         scope=scope, named_dir=named_dir, group_files=group_files, group_min=group_min, group_seg_res=tuple(group_seg_res),
         child_seg_parents=child_parents, child_seg_res=tuple(child_res),
         content_files=content_files, content_min=content_min, content_exts=content_exts, file_scope=file_scope,
-        parent_not_roles=frozenset(parent_not),
+        parent_not_roles=frozenset(parent_not), only_dirs=only_dirs, only_res=tuple(only_res), only_files="only_files" in match,
     )
 
 
