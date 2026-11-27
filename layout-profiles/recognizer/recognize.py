@@ -52,9 +52,15 @@ DOC_SKIP_NAMES = frozenset({"assets", "js", "css", "img", "images", "overrides",
 DEFAULT_PROFILES = Path(__file__).resolve().parent.parent / "profiles"
 
 
-def finding_id(profile: Profile, rule_id: str, path: str) -> str:
-    """Stable across surveys: the profile, its MAJOR version, the rule and the repo-relative path. No time, run id or tree sha."""
-    return hashlib.sha256(f"{profile.profile_id}@{profile.major}|{rule_id}|{path}".encode("utf-8")).hexdigest()[:16]
+def finding_id(profile: Profile, rule_id: str, path: str, origin: str | None = None) -> str:
+    """Stable across surveys: the DEFINING profile (J6, D-J3: the profile whose file defines the rule, `origin`; an in-place replacement defines it anew),
+    that profile's MAJOR version, the rule and the repo-relative path. No time, run id or tree sha, and no composed profile id: the same rule on the same path
+    keeps its id whichever profile or composition ran it. Without `origin` the run's profile is used (the pre-J6 id)."""
+    if origin is None:
+        pid, major = profile.profile_id, profile.major
+    else:
+        pid, major = origin, dict(profile.composed_of).get(origin, profile.version).split(".")[0]
+    return hashlib.sha256(f"{pid}@{major}|{rule_id}|{path}".encode("utf-8")).hexdigest()[:16]
 
 
 def parse_line(line: str, number: int) -> tuple[str, int]:
@@ -160,6 +166,7 @@ class Recognizer:
         self.hidden_subtrees = [r for r in self.file_rules if r.grain == "subtree" and r.relevance == "hidden"
                                 and set(r.match) <= {"path_segment", "path_glob"}]
         self.claims: dict[str, Rule] = {}             # directory -> the first dir rule that claims it
+        self._structural_origin = {sr["id"]: sr.get("origin", profile.profile_id) for sr in profile.structural}   # J6: the profile that defines each structural rule
         self.subtree_claims: dict[str, set] = {}      # rule id -> directories claimed with grain subtree
 
     def inside_hidden_subtree(self, d: str) -> bool:
@@ -979,7 +986,7 @@ class Recognizer:
 
     def finding(self, rule: Rule, path: str, grain: str, extra: dict | None = None) -> dict:
         f = {
-            "finding_id": finding_id(self.p, rule.id, path), "path": path, "role": rule.role, "kind": rule.kind, "relevance": rule.relevance,
+            "finding_id": finding_id(self.p, rule.id, path, self._structural_origin.get(rule.id, rule.origin) if rule.origin == "structural" else rule.origin), "path": path, "role": rule.role, "kind": rule.kind, "relevance": rule.relevance,
             "rule_id": rule.id, "basis": rule.basis, "confidence": rule.confidence, "evidence": rule.evidence, "grain": grain,
             "profile_id": self.p.profile_id, "profile_version": self.p.version,
         }

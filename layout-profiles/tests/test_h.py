@@ -14,6 +14,16 @@ from recognizer.recognize import Recognizer
 PROFILES = Path(__file__).resolve().parent.parent / "profiles"
 
 
+def _defined_by():
+    from recognizer.layout_profile import load_profile as _lp
+    p = _lp("code-repo-conventions", Path(__file__).resolve().parent.parent / "profiles")
+    return {r.id: r.origin for r in (*p.rules, *p.file_roles)} | {getattr(p.manifest_reading, k).id: getattr(p.manifest_reading, k).origin
+                                                                  for k in ("member_rule", "aggregator_rule", "included_build_rule") if getattr(p.manifest_reading, k)}
+
+
+DEFINED_BY = _defined_by()                       # rule id -> the profile that defines it (Phase 1j J6: finding ids are made from it)
+
+
 def survey(tmp_path, files, out="out", name="tree", profile="code-repo-conventions"):
     root = tmp_path / name
     for rel, content in files.items():
@@ -118,7 +128,7 @@ def test_h1_leaves_finding_ids_of_unaffected_components_unchanged(tmp_path):
     assert load_profile("code-repo-conventions", PROFILES).major == "0"
     for d in ("core", "lib"):
         rid = r1.f[d]["rule_id"]
-        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"code-repo-conventions@0|{rid}|{d}".encode()).hexdigest()[:16]
+        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"{DEFINED_BY[rid]}@0|{rid}|{d}".encode()).hexdigest()[:16]     # Phase 1j J6: the profile that defines the rule
 
 
 def test_h1_in_the_composite_profile(tmp_path):
@@ -261,7 +271,7 @@ def test_h2_leaves_finding_ids_of_unaffected_components_unchanged(tmp_path):
     r2 = survey(tmp_path, {**files1, "config/checkstyle/checkstyle.xml": "x"}, out="r2", name="tree2")
     for d in ("core", "lib"):
         rid = r1.f[d]["rule_id"]
-        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"code-repo-conventions@0|{rid}|{d}".encode()).hexdigest()[:16]
+        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"{DEFINED_BY[rid]}@0|{rid}|{d}".encode()).hexdigest()[:16]     # Phase 1j J6: the profile that defines the rule
 
 
 def test_h2_in_the_composite_profile(tmp_path):

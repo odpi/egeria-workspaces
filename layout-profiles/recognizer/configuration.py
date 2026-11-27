@@ -31,7 +31,7 @@ def chain(profile) -> list:
 
 def canonical(profile) -> dict:
     """The effective configuration, as plain data in a fixed order (the input of config_sha256)."""
-    strip = lambda d: {k: v for k, v in d.items() if k not in ("evidence", "tuned_on")}          # noqa: E731
+    strip = lambda d: {k: v for k, v in d.items() if k not in ("evidence", "tuned_on", "origin")}          # noqa: E731 (origin: the J6 defining profile)
     return {
         "chain": chain(profile),
         "settings": {k: profile.settings[k] for k in sorted(getattr(profile, "settings", {}) or {})},

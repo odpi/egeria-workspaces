@@ -664,7 +664,7 @@ def _grammar(where: str, items: Any, must: tuple) -> tuple:
     return tuple(out)
 
 
-def _structural(where: str, items: Any) -> tuple:
+def _structural(where: str, items: Any, origin: str = "") -> tuple:
     if items is None:
         return ()
     if not isinstance(items, list):
@@ -714,7 +714,7 @@ def _structural(where: str, items: Any) -> tuple:
             raise ProfileError(f"{w}: evidence must be a non-empty string")
         if not isinstance(item["id"], str) or not RULE_ID.match(item["id"]):
             raise ProfileError(f"{w}: id must be a simple identifier")
-        out.append({**item, "evidence": item["evidence"].strip(), "tuned_on": list(item.get("tuned_on", []))})
+        out.append({**item, "evidence": item["evidence"].strip(), "tuned_on": list(item.get("tuned_on", [])), "origin": origin})     # J6: the defining profile
     return tuple(out)
 
 
@@ -887,7 +887,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     composed = [(pid, version)]
     path_grammar = _grammar(f"{source} path_grammar", doc.get("path_grammar"), ("id", "pattern", "yields"))
     name_grammar = _grammar(f"{source} name_grammar", doc.get("name_grammar"), ("id", "pattern", "yields"))
-    structural_own = _structural(source, doc.get("structural_rules"))
+    structural_own = _structural(source, doc.get("structural_rules"), pid)
     structural = list(structural_own)
     inh_rules, inh_fr = [], []
     inh_disabled, inh_replaced = [], []
