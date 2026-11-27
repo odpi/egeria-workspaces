@@ -662,7 +662,7 @@ Cause (Dan's ruling): `R-conv-scripts` made every top-level `scripts` folder a c
 
 Recall changes nowhere; tune-set recall stays 1.00 (trellis, superset, datahub) against the current keys. `scripts` leaves the candidate list in every repository where it was one (dagster, fastapi, btorch, ideavim, trellis, superset, egeria-python), and so do ideavim's `scripts-ts` and its `src`. The keyed `config` components (kafka, egeria-python, trellis) stay candidates; the three `config` folders that leave (dagster, motif, test-retry-gradle-plugin) hold only linter configuration. No `tools/src` (or other src below a tooling folder) was a candidate in these repositories, so the `parent_not_role` effect shows only on ideavim. File roles do not change anywhere (`file_scope`): no file-role finding and no per-role or per-rule count in `classes.json` moves; the only other changes are the component counts, the profile version (0.9.0) and the copied evidence text of the changed rules. Two runs of the new code give byte-identical outputs (119 of 119 files). The NB05 `bids-dataset` outputs (seeds 1 to 3 clean, drift-a and drift-b, and ds000117) are byte-identical with and without the Phase 1g and 1h profile and recognizer hunks applied to the NB05 head.
 
-## Phase 1i (I1, I1-G): internal test packages are not components (`code-repo-conventions` 0.10.0, `code-repo` 0.5.0)
+## Phase 1i (I1, I1-G, I2): internal test packages are not components; more test-folder names (`code-repo-conventions` 0.10.0, `code-repo` 0.5.0)
 
 Cause (Dan's ruling 1): internal test projects outside a top-level test folder (private npm workspace packages, test-harness projects, unpublished Gradle test projects) were components.
 
@@ -675,6 +675,9 @@ Cause (Dan's ruling 1): internal test projects outside a top-level test folder (
 - **Unchanged:** a project that is only its build file(s) (a starter or a BOM); `x-test` with `src/main` (a published test library); `contest`, `attestation`, `latest-x`, `x-testkit`; a folder without its own Gradle build file; a top-level grouping test folder (the existing rules). `R-conv-node-src` is not changed: a `<top>/src` beside a private top-level `package.json` is still a source-root component (its `parent_not_role` names tooling only). Finding ids of unaffected components do not change (the major version is unchanged).
 - **Known limits:** a private npm package that is a real application outside the exempt folder names (for example `frontend/`) becomes test-support; a published package marked private by mistake is excluded; an internal Gradle test-support library WITH `src/main` (for example `x-test-utils`) stays a component; a Gradle test project that holds only its build file stays a component (it cannot be told from a starter).
 
+- **I2, more test-folder names (Dan's ruling 2):** the closed name list of `R-conv-tests` (a top-level test suite folder, one test-suite component) and, identically, the first segment list of `R-fx-test-project` (a manifest project below such a folder is a fixture) gain `testbed`, `testbeds`, `test-bed`, `test_bed`, `e2e`, `end-to-end`, `end2end`, `itest` and `itests` (case-insensitive, whole name or segment). No other names. A top-level `e2e/` with its own `package.json` is now the test-suite component (it was a `node-package` component).
+- **Unchanged by I2:** `testbedding/`, `e2etools/`, `my-e2e/`, `e2e-utils/` (not whole names); `src/e2e` is not a top-level test suite (R-conv-tests is top level only), though a manifest project at or below `src/e2e` is a fixture by the segment rule. The two Phase 1d tests that pinned `testbed` and `e2e` as unmatched now leave them out. File roles are not changed by I2 (`F-test-dir` keeps test, tests and `__tests__`).
+- **Known limit (I2):** the test-folder list is closed; other names (`qa/`, `compat/`) are not test suites.
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
@@ -725,4 +728,4 @@ Phase 1f: synthetic trees for F1; for F2 the spent spring-boot and kafka trees, 
 Phase 1g: synthetic trees for G1 and G2; for G3 the spent repositories named in the Architect's scope, the tune set and the two dogfood trees were listed by names with `gitlist.py` and read through the git object database, and scored only through the scorer; no unspent held-out tree or key was listed, opened or run.
 
 Phase 1h: synthetic trees for H1 and H2; for H3 the repositories of G3 plus the spent ideavim and test-retry-gradle-plugin trees, listed by names with `gitlist.py` and read through the git object database, and scored only through the scorer against the current keys; no unspent held-out tree or key was listed, opened or run.
-Phase 1i: synthetic trees for I1 and I1-G; no repository tree or key was listed, opened or run.
+Phase 1i: synthetic trees for I1, I1-G and I2; no repository tree or key was listed, opened or run.

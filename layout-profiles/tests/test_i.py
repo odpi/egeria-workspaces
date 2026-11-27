@@ -313,3 +313,75 @@ def test_the_new_keys_load(tmp_path):
     r = _prof(tmp_path, {"match": {"has_file": "package.json", "manifest_private": True, "not_path_segment": ["Apps"]}, "assign": {"role": "test-support"},
                          "grain": "dir"}).rules[0]
     assert r.manifest_private and r.not_segments == frozenset({"apps"}) and r.is_dir_rule
+
+
+# ======================================================================== I2 ========================================================================================
+I2_NAMES = ["testbed", "testbeds", "test-bed", "test_bed", "e2e", "end-to-end", "end2end", "itest", "itests"]
+PY_ROOT = {"pyproject.toml": "[project]\nname='r'\n"}
+
+
+# ---- (1) testbed/x + testbed/y: testbed is one test-suite component; x and y are fixtures
+def test_a_testbed_folder_is_one_test_suite_and_its_projects_are_fixtures(tmp_path):
+    r = survey(tmp_path, {**PY_ROOT, "testbed/x/package.json": PUB, "testbed/y/package.json": PUB})
+    assert r.f["testbed"]["rule_id"] == "R-conv-tests" and r.f["testbed"]["kind"] == "test-suite" and "testbed" in r.top
+    for d in ("testbed/x", "testbed/y"):
+        assert not_component(r, d, "R-fx-test-project", "fixture")
+
+
+# ---- (2) e2e/ with test files and no manifest: a test-suite component
+def test_an_e2e_folder_without_a_manifest_is_a_test_suite(tmp_path):
+    r = survey(tmp_path, {**PY_ROOT, "e2e/login.spec.ts": "x", "e2e/cart.spec.ts": "x"})
+    assert "e2e" in r.top and r.f["e2e"]["rule_id"] == "R-conv-tests"
+
+
+@pytest.mark.parametrize("name", I2_NAMES + ["TestBed", "E2E", "End-To-End", "ITests"])
+def test_every_new_name_is_a_top_level_test_suite(tmp_path, name):
+    r = survey(tmp_path, {**PY_ROOT, f"{name}/a.py": "x"})
+    assert name in r.top and r.f[name]["rule_id"] == "R-conv-tests"
+
+
+@pytest.mark.parametrize("name", I2_NAMES + ["TestBed", "E2E"])
+def test_every_new_name_makes_a_manifest_project_below_it_a_fixture_at_any_depth(tmp_path, name):
+    r = survey(tmp_path, {**PY_ROOT, f"pkg/{name}/p/package.json": PUB})
+    assert not_component(r, f"pkg/{name}/p", "R-fx-test-project", "fixture")
+
+
+# ---- (3) NOT matched: testbedding/, e2etools/; src/e2e is not a top-level test suite
+@pytest.mark.parametrize("name", ["testbedding", "e2etools", "my-e2e", "e2e-utils", "itesting", "end2ending", "pre-testbed"])
+def test_other_names_are_not_test_folders(tmp_path, name):
+    r = survey(tmp_path, {**PY_ROOT, f"{name}/a.py": "x", f"{name}/p/package.json": PUB})
+    assert r.f.get(name, {}).get("rule_id") != "R-conv-tests" and f"{name}/p" in r.allc
+
+
+def test_src_e2e_is_not_a_test_suite_but_a_manifest_project_in_it_is_a_fixture(tmp_path):
+    # R-conv-tests is top level only: src/e2e itself is no test-suite component. The R-fx-test-project segment rule applies below it, and to src/e2e
+    # itself, only where there is a manifest project.
+    r1 = survey(tmp_path, {**PY_ROOT, "src/e2e/a.spec.ts": "x"}, out="o1", name="t1")
+    assert "src/e2e" not in r1.f and "src/e2e" not in r1.allc
+    r2 = survey(tmp_path, {**PY_ROOT, "src/e2e/x/package.json": PUB, "src/e2e/package.json": PUB}, out="o2", name="t2")
+    assert not_component(r2, "src/e2e/x", "R-fx-test-project", "fixture") and not_component(r2, "src/e2e", "R-fx-test-project", "fixture")
+
+
+def test_an_e2e_folder_with_its_own_manifest_is_a_test_suite_not_a_package(tmp_path):
+    r = survey(tmp_path, {**PY_ROOT, "e2e/package.json": PUB, "e2e/a.spec.ts": "x"})
+    assert r.f["e2e"]["rule_id"] == "R-conv-tests" and "e2e" in r.top
+
+
+# ---- (4) unaffected finding ids do not change
+def test_i2_leaves_finding_ids_of_unaffected_components_unchanged(tmp_path):
+    files1 = {**PY_ROOT, "lib/pom.xml": "<project/>", "core/pyproject.toml": "[project]\nname='c'\n", "tests/a.py": "x"}
+    r1 = survey(tmp_path, files1, out="r1", name="tree1")
+    r2 = survey(tmp_path, {**files1, "testbed/x/package.json": PUB, "e2e/a.ts": "x"}, out="r2", name="tree2")
+    for d in ("core", "lib", "tests"):
+        rid = r1.f[d]["rule_id"]
+        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"code-repo-conventions@0|{rid}|{d}".encode()).hexdigest()[:16]
+
+
+def test_the_two_rules_carry_the_same_closed_list():
+    p = load_profile("code-repo-conventions", PROFILES)
+    by = {x.id: x for x in p.rules}
+    (tests_rx,) = by["R-conv-tests"].name_res
+    fx_rx = by["R-fx-test-project"].segment_res[0]
+    for n in I2_NAMES:
+        assert tests_rx.search(n) and fx_rx.search(n)
+    assert any(t.startswith("Phase 1i I2") for t in by["R-conv-tests"].tuned_on) and any(t.startswith("Phase 1i I2") for t in by["R-fx-test-project"].tuned_on)

@@ -64,8 +64,9 @@ def test_no_word_is_added_beyond_the_n3_list():
     r = [x for x in p.rules if x.id == "R-fx-test-project"][0]
     words = set()
     for rx in r.segment_res:
-        words |= {w for w in ("spec", "check", "verify", "qa", "e2e", "integration", "unit", "smoke", "mock", "stub") if w in rx.pattern.lower()}
+        words |= {w for w in ("spec", "check", "verify", "qa", "integration", "unit", "smoke", "mock", "stub") if w in rx.pattern.lower()}
     assert words == set()                                                                    # only test, tests, testing (and the N3 names) appear in the patterns
+    # (Phase 1i I2 adds the closed list testbed(s), test-bed, test_bed, e2e, end-to-end, end2end, itest(s): Dan's ruling 2; e2e left this forbidden list)
 
 
 # ---- D2: test- and tests- prefixes ----------------------------------------------------------------------------------------------------------------------------
@@ -75,7 +76,7 @@ def test_a_segment_that_starts_with_a_test_prefix_is_a_fixture(tmp_path, seg):
     assert f["role"] == "fixture" and not is_comp
 
 
-@pytest.mark.parametrize("seg", ["testing-tools-x", "tester", "testbed", "testify", "testsuite", "tests"[:0] + "attestation", "contest-lib"])
+@pytest.mark.parametrize("seg", ["testing-tools-x", "tester", "testify", "testsuite", "tests"[:0] + "attestation", "contest-lib"])
 def test_other_prefixes_are_not_matched(tmp_path, seg):
     f, is_comp = one(tmp_path, seg, out="q" + str(abs(hash(seg)) % 10**6))
     assert f["rule_id"] == "R-comp-package-json" and is_comp
