@@ -402,6 +402,14 @@ class PlatformBody(BaseModel):
                                      _egeria_token.get())
         if refusal is not None:   # PO-41
             raise refusal
+        # On the demo Portal, a sent password goes only with a demo persona's user name. Not when a sign-in
+        # token is presented: clients then authenticate with the token only (use_token never falls back to
+        # the body's credentials), as the PO-41 rule above also assumes.
+        if not _egeria_token.get():
+            refusal = demo_persona_refusal(getattr(self, "user_id", None) or service_user(),
+                                           bool(getattr(self, "user_pwd", None)))
+            if refusal is not None:
+                raise refusal
         return self
 
 
@@ -456,6 +464,37 @@ def named_user_refusal(user_id: Optional[str], password_sent: bool,
     if token or password_sent or not user_id or user_id == service_user():
         return None
     return PlatformRefused(400, NAMED_USER_NEEDS_PASSWORD_WORDS)
+
+# ── Demo: a sent password goes only with a demo persona's user name ────────────────────────────────
+# On the public demo (DEMO_MODE) every signed-in user may act as the demo personas, whose passwords the
+# Portal hands out (POST /api/demo/select-persona). A password sent with any other user name is refused,
+# so the Portal only ever signs in to Egeria as a persona when a caller supplies the credentials. The
+# personas are the server's own list (personas.json beside this file, the file select-persona reads); if
+# it cannot be read, no name is accepted. Local and server-managed Portals are not affected.
+DEMO_PERSONA_ONLY_WORDS = ("On this demo Portal, a password can only be sent with one of the demo personas' "
+                           "user names. Choose a persona from the persona list.")
+PERSONAS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "personas.json")
+
+
+def demo_persona_ids() -> frozenset:
+    """The demo personas' Egeria user names (the keys of personas.json); empty if it cannot be read."""
+    try:
+        with open(PERSONAS_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return frozenset()
+    return frozenset(k for k in data if isinstance(k, str)) if isinstance(data, dict) else frozenset()
+
+
+def demo_persona_refusal(user_id: Optional[str], password_sent: bool) -> Optional["PlatformRefused"]:
+    """PlatformRefused(403) when, on the demo Portal, a password is sent with a user name that is not a
+    demo persona's; None otherwise (and always None outside DEMO_MODE)."""
+    import demo_config
+    if not password_sent or not bool(demo_config.DEMO_MODE):
+        return None
+    if user_id and user_id in demo_persona_ids():
+        return None
+    return PlatformRefused(403, DEMO_PERSONA_ONLY_WORDS)
 
 
 def _query_named_user_refusal(query_string: bytes, token: Optional[str]) -> Optional["PlatformRefused"]:

@@ -5,28 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markdown Viewer</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.8.0/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.5.0/dist/purify.min.js"></script>
     <!-- Add additional script to help with mermaid rendering -->
-    <script>
-        // This function will be called after the page loads to ensure mermaid is properly initialized
-        window.addEventListener('load', function() {
-            console.log("Window loaded, checking for mermaid diagrams");
-            setTimeout(function() {
-                const diagrams = document.querySelectorAll('.mermaid');
-                console.log(`Found ${diagrams.length} mermaid diagrams on page load`);
-                if (diagrams.length > 0) {
-                    console.log("Attempting to re-render mermaid diagrams");
-                    try {
-                        mermaid.initialize({ startOnLoad: true, securityLevel: 'strict' });
-                        mermaid.init(undefined, diagrams);
-                    } catch (e) {
-                        console.error("Error re-initializing mermaid:", e);
-                    }
-                }
-            }, 1000); // Wait 1 second to ensure everything is loaded
-        });
-    </script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -122,6 +104,12 @@
     </div>
     <div id="content"></div>
     <script>
+        // Text from the markdown file is put into the page as text, never as markup.
+        function escapeHtml(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
         // Initialize mermaid with enhanced configuration
         mermaid.initialize({
             startOnLoad: false, // Changed to false to manually control initialization
@@ -130,7 +118,6 @@
             logLevel: 'info', // Changed to info for more detailed logging
             fontFamily: 'monospace',
             flowchart: {
-                htmlLabels: true,
                 curve: 'basis'
             },
             sequence: {
@@ -149,55 +136,76 @@
             }
         });
 
-        // Get the original markdown file URL from the referrer or query parameter
-        function getMarkdownUrl() {
-            // Try to get the URL from the referrer
-            const referrer = document.referrer;
-            if (referrer && referrer.endsWith('.md')) {
-                return referrer;
+        // The viewer shows only markdown files from this site. A candidate must be a path on this
+        // origin: no scheme, no host (including a leading "//"), no backslash or control character.
+        // Returns the path (with any query), or null when the candidate is not accepted.
+        function sameOriginPath(candidate) {
+            if (typeof candidate !== 'string') return null;
+            const s = candidate.trim();
+            if (!s || s.length > 2048) return null;
+            if (/[\\\u0000-\u001f\u007f]/.test(s)) return null;
+            if (s.startsWith('//')) return null;
+            if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s)) return null;
+            let u;
+            try {
+                u = new URL(s.startsWith('/') ? s : '/' + s, window.location.origin);
+            } catch (e) {
+                return null;
             }
+            if (u.origin !== window.location.origin) return null;
+            return u.pathname + u.search;
+        }
 
-            // If no referrer, try to get from URL parameters
+        // Get the markdown file's path from the query parameter, the referrer or the viewer's own URL.
+        // Returns { path } or { rejected } (the text that was not accepted).
+        function getMarkdownUrl() {
+            // Apache redirects /some/file.md to /markdown-viewer?url=/some/file.md
             const urlParams = new URLSearchParams(window.location.search);
             let mdUrl = urlParams.get('url');
             if (mdUrl) {
                 try {
                     // Handle both encoded and non-encoded URLs
                     mdUrl = decodeURIComponent(mdUrl);
-
-                    // Ensure the URL is properly formatted
-                    if (!mdUrl.startsWith('/') && !mdUrl.startsWith('http')) {
-                        mdUrl = '/' + mdUrl;
-                    }
-
-                    // If the URL doesn't end with .md, add it
-                    if (!mdUrl.endsWith('.md')) {
-                        mdUrl = mdUrl + '.md';
-                    }
-
-                    return mdUrl;
                 } catch (e) {
                     console.error("Error decoding URL:", e);
-                    // If decoding fails, try to use the raw URL
-                    return mdUrl;
                 }
+                const path = sameOriginPath(mdUrl);
+                if (!path) return { rejected: mdUrl };
+                // If the path doesn't end with .md, add it
+                return { path: path.endsWith('.md') ? path : path + '.md' };
             }
 
-            // If all else fails, use the document.URL but replace /markdown-viewer with the original path
-            const currentUrl = document.URL;
-            if (currentUrl.includes('/markdown-viewer')) {
-                // This is a fallback and might not work in all cases
-                return currentUrl.replace('/markdown-viewer', '');
+            // A markdown page on this site that linked here
+            try {
+                const ref = document.referrer ? new URL(document.referrer) : null;
+                if (ref && ref.origin === window.location.origin && ref.pathname.endsWith('.md')) {
+                    return { path: ref.pathname };
+                }
+            } catch (e) {
+                // not a usable referrer
             }
 
-            // Last resort: just use the current URL (original behavior)
-            return window.location.href;
+            // Fallback: the viewer's own path, with /markdown-viewer removed
+            const own = window.location.pathname;
+            if (own.includes('/markdown-viewer')) {
+                const path = sameOriginPath(own.replace('/markdown-viewer', ''));
+                if (path) return { path };
+            }
+            return { rejected: '' };
         }
 
         // Fetch the markdown content
-        const mdUrl = getMarkdownUrl();
+        const target = getMarkdownUrl();
+        const mdUrl = target.path || '';
         console.log("Fetching markdown from URL:", mdUrl);
 
+        if (!target.path) {
+            document.getElementById('content').innerHTML = `
+                <h1>Cannot show this file</h1>
+                <p>The markdown viewer shows only files on this site, given as a path such as /folder/file.md.</p>
+                <p>Not accepted: <code>${escapeHtml(target.rejected)}</code></p>
+            `;
+        } else
         // Add a special header to bypass the rewrite rule
         fetch(mdUrl, {
             headers: {
@@ -216,6 +224,12 @@
                 const originalCodeRenderer = renderer.code;
 
                 renderer.code = function(code, language) {
+                    // marked 13 and later pass one token ({ text, lang }) instead of (code, language).
+                    const token = (code && typeof code === 'object') ? code : null;
+                    if (token) {
+                        language = token.lang;
+                        code = token.text;
+                    }
                     console.log("Renderer.code called with language:", language);
 
                     // Handle both 'mermaid' and undefined language with mermaid content
@@ -231,19 +245,20 @@
                             // Ensure code is a string before calling trim()
                             const cleanCode = typeof code === 'string' ? code.trim() : String(code);
 
-                            return `<div class="mermaid" id="${diagramId}">${cleanCode}</div>`;
+                            // Escaped, so that the diagram text reaches mermaid unchanged (mermaid reads textContent).
+                            return `<div class="mermaid" id="${diagramId}">${escapeHtml(cleanCode)}</div>`;
                         } catch (error) {
                             console.error("Error rendering mermaid diagram:", error);
                             return `<div class="mermaid-error-container">
                                 <div class="mermaid-error">
                                     <p>Error rendering mermaid diagram:</p>
-                                    <pre>${error.message}</pre>
-                                    <pre>${code}</pre>
+                                    <pre>${escapeHtml(error.message)}</pre>
+                                    <pre>${escapeHtml(code)}</pre>
                                 </div>
                             </div>`;
                         }
                     }
-                    return originalCodeRenderer.call(this, code, language);
+                    return token ? originalCodeRenderer.call(this, token) : originalCodeRenderer.call(this, code, language);
                 };
 
                 // Set options for marked
@@ -260,7 +275,6 @@
                     pedantic: false,
                     gfm: true,
                     breaks: false,
-                    sanitize: false,
                     smartLists: true,
                     smartypants: false,
                     xhtml: false,
@@ -268,7 +282,12 @@
                 });
 
                 // Render markdown
-                document.getElementById('content').innerHTML = marked.parse(text);
+                // marked does not sanitise its output; DOMPurify does, before it goes into the page.
+                // Without DOMPurify the file is not shown.
+                if (!window.DOMPurify || typeof window.DOMPurify.sanitize !== 'function') {
+                    throw new Error('The HTML sanitiser (DOMPurify) did not load, so the file is not shown.');
+                }
+                document.getElementById('content').innerHTML = window.DOMPurify.sanitize(marked.parse(text));
 
                 // Render mermaid diagrams with enhanced error handling
                 console.log("Starting mermaid diagram rendering");
@@ -277,32 +296,24 @@
                 const mermaidDiagrams = document.querySelectorAll('.mermaid');
                 console.log(`Found ${mermaidDiagrams.length} mermaid diagrams`);
 
-                // Process each diagram individually for better error isolation
-                mermaidDiagrams.forEach((element, index) => {
-                    console.log(`Processing mermaid diagram ${index}:`, element.id);
-                    console.log(`Diagram content: ${element.textContent.substring(0, 100)}...`);
-
-                    try {
-                        // Force a re-parse of the diagram
+                // Render each diagram in turn, for error isolation. mermaid.render() with the element's own
+                // unique id: separate mermaid.run() calls in the same millisecond reuse svg ids, and diagrams
+                // then overwrite each other's content and styles.
+                (async () => {
+                    for (const [index, element] of Array.from(mermaidDiagrams).entries()) {
+                        console.log(`Processing mermaid diagram ${index}:`, element.id);
                         const content = element.textContent;
-                        element.textContent = content;
-
-                        // Use the newer run method if available, otherwise fall back to init
-                        if (typeof mermaid.run === 'function') {
-                            mermaid.run({
-                                nodes: [element]
-                            }).catch(diagramError => {
-                                console.error(`Error running mermaid diagram ${index}:`, diagramError);
-                                handleMermaidError(element, diagramError, index);
-                            });
-                        } else {
-                            mermaid.init(undefined, [element]);
+                        try {
+                            const { svg, bindFunctions } = await mermaid.render(element.id + '-svg', content);
+                            element.innerHTML = svg;
+                            if (bindFunctions) bindFunctions(element);
+                            element.setAttribute('data-processed', 'true');
+                        } catch (diagramError) {
+                            element.textContent = content;
+                            handleMermaidError(element, diagramError, index);
                         }
-                    } catch (diagramError) {
-                        console.error(`Error initializing mermaid diagram ${index}:`, diagramError);
-                        handleMermaidError(element, diagramError, index);
                     }
-                });
+                })();
 
                 // Helper function to handle mermaid errors consistently
                 function handleMermaidError(element, error, index) {
@@ -311,8 +322,8 @@
                     element.innerHTML = `
                         <div class="mermaid-error">
                             <p>Error rendering mermaid diagram:</p>
-                            <pre>${error.message}</pre>
-                            <pre>${originalContent}</pre>
+                            <pre>${escapeHtml(error.message)}</pre>
+                            <pre>${escapeHtml(originalContent)}</pre>
                         </div>
                     `;
                     element.classList.remove('mermaid');
@@ -324,8 +335,8 @@
                 document.getElementById('content').innerHTML = `
                     <h1>Error Loading Markdown</h1>
                     <p>There was an error loading or rendering the markdown file:</p>
-                    <pre>${error.message}</pre>
-                    <p>URL attempted: ${mdUrl}</p>
+                    <pre>${escapeHtml(error.message)}</pre>
+                    <p>URL attempted: ${escapeHtml(mdUrl)}</p>
                 `;
             });
     </script>
