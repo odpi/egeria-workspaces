@@ -6,7 +6,7 @@
 # (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). The component rules are
 # FROZEN as in 0.1.0; 0.2.0 adds only the file_roles layer below (path rules, no file content), which can neither change a component nor un-hide a file.
 profile_id: code-repo-conventions
-version: 0.7.0
+version: 0.8.0
 status: proposed
 applies_to: code-repo
 extends: [code-repo]
@@ -89,13 +89,13 @@ rules:
     evidence: "a top-level scripts directory holds the repository's helper scripts"
     tuned_on: [trellis, superset]
   - id: R-tool-package
-    match: {segment_regex: ['(?i)^(?:tools|tooling|devtools|dev-tools|build-tools|buildsrc|_ext|ci|\.ci|\.github|\.buildkite|\.circleci|scripts)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    match: {segment_regex: ['(?i)^(?:tools|tooling|devtools|dev-tools|build-tools|buildsrc|_ext|scripts)$|^(?:\.github|\.circleci|\.buildkite|ci|\.ci|\.teamcity|\.gitlab|\.azure-pipelines|\.azuredevops|\.woodpecker|\.tekton|\.semaphore|\.jenkins)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
     assign: {role: tooling, kind: tooling-package}
     grain: dir
     basis: convention
     confidence: medium
-    evidence: "a package under a tools, tooling, devtools, dev-tools, build-tools, buildSrc, _ext, ci, .ci, .github, .buildkite, .circleci or scripts folder is the repository's own tooling, not a package it ships"
-    tuned_on: [superset, "dagster (M8, spent)"]
+    evidence: "a package under a tools, tooling, devtools, dev-tools, build-tools, buildSrc, _ext or scripts folder, or under a CI-configuration folder (the closed list shared with F-ci: .github, .circleci, .buildkite, ci, .ci, .teamcity, .gitlab, .azure-pipelines, .azuredevops, .woodpecker, .tekton, .semaphore, .jenkins), is the repository's own tooling, not a package it ships (a CI tool keeps its own build file there, such as a pom.xml for a Kotlin DSL)"
+    tuned_on: [superset, "dagster (M8, spent)", "Phase 1g G1 (CI-configuration folders; the list is a closed list of CI services, not fitted to a repository)"]
   - id: R-conv-deployment
     match: {path_glob: [docker, deploy, deployment, k8s]}
     assign: {role: component, kind: deployment}
@@ -135,13 +135,16 @@ file_roles:
   # 0.3.0: the build rules (exact manifest names, Makefile, Dockerfile*, *.gradle*) come BEFORE the config extensions, so pyproject.toml, Cargo.toml and
   # Chart.yaml are `build`, not `config` (the brief's intent: a manifest is a build definition).
   - id: F-ci
-    match: {path_glob: [".github/**", ".circleci/**", "**/.github/**", ".gitlab-ci.yml", "Jenkinsfile"]}
+    # G1 (0.8.0): the CI-configuration folders are ONE closed list, the same as the CI part of R-tool-package's segment list (a test checks they agree);
+    # each is matched as a path SEGMENT at any depth (X/** and **/X/**), case-sensitive as before, EXCEPT the bare `ci`: top level only (ci/**), because a
+    # non-dot ci deeper down is often a source package (.../java/org/x/ci/). R-tool-package still matches ci at any depth (it needs a manifest there).
+    match: {path_glob: [".github/**", "**/.github/**", ".circleci/**", "**/.circleci/**", ".buildkite/**", "**/.buildkite/**", "ci/**", ".ci/**", "**/.ci/**", ".teamcity/**", "**/.teamcity/**", ".gitlab/**", "**/.gitlab/**", ".azure-pipelines/**", "**/.azure-pipelines/**", ".azuredevops/**", "**/.azuredevops/**", ".woodpecker/**", "**/.woodpecker/**", ".tekton/**", "**/.tekton/**", ".semaphore/**", "**/.semaphore/**", ".jenkins/**", "**/.jenkins/**", ".gitlab-ci.yml", "Jenkinsfile"]}
     assign: {role: ci, kind: ci-definition}
     grain: dir
     basis: convention
     confidence: high
-    evidence: "CI service definitions live in .github, .circleci, .gitlab-ci.yml and a Jenkinsfile"
-    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository"]
+    evidence: "CI service definitions live in a CI-configuration folder (.github, .circleci, .buildkite, .ci, .teamcity, .gitlab, .azure-pipelines, .azuredevops, .woodpecker, .tekton, .semaphore, .jenkins at any depth; ci at the top level only, since a ci folder deeper down is often a source package), in .gitlab-ci.yml and in a Jenkinsfile"
+    tuned_on: ["brief 0335c236 (patterns), not fitted to a repository", "Phase 1g G1 (the closed CI-folder list shared with R-tool-package)"]
   - id: F-test-dir
     match: {path_segment: [tests, test, __tests__]}
     assign: {role: test, kind: test-file}
