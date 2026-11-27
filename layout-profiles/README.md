@@ -739,6 +739,53 @@ checks that the outputs are cleared, that no absolute or local path is in it, th
 code, and that the Phase 3 cells are marked. It works from the notebook's own folder in a checkout; the work folder is a temporary folder, removed
 at the end.
 
+## Phase 2, notebook 04a, A0: a seeded CalculiX-shaped parametric-sweep generator (`samples/fea_sweep_gen.py`)
+
+Command: `python samples/fea_sweep_gen.py --seed 1 --out OUT [--grid 4x5x3 | --large] [--ran-fraction 0.8] [--mutations SPEC.yaml]`. `OUT` must be
+absent or empty.
+
+It writes `OUT/study-<name>/` (the tree), `OUT/paths.tsv` (`path<TAB>size` of the study's files, sorted, paths starting with `study-<name>/`) and
+`OUT/truth.jsonl` (one line per injected deviation: path, kind, status, class, the variant for a class that has variants, and the expected rule for
+off-grammar-case-name; empty for a clean tree).
+**The scanned root is `OUT`, the parent of the study folder**: the recognizer makes parts only below a component that is not the scanned root, and the
+study is that component (approved by the Architect, 2026-11-27).
+
+The tree models file NAME conventions only: CalculiX (`.inp` input deck, `.frd` results, `.dat` printed output, `.sta` step status, `.cvg`
+convergence, `.msg` messages, `.12d` eigen data, `.rout` restart) and Gmsh (`.msh` meshes). Every file is a one-line placeholder; no deck, mesh,
+result or example is copied and no tool is run (SOURCES.md). Per study: `README.md`, `sweep.yaml` (presence only, never read), `templates/base.inp`,
+`materials/<material>.inp`, `mesh/<part>_<level>.msh`, one folder `cases/case_E<E>_t<t>_mesh-<level>/` per grid point (`job.inp` and `run.log`;
+a case that ran also has `job.frd`, `job.dat`, `job.sta`, `job.cvg`, `job.msg`, and some `job.12d` and `job.rout`), `post/<case-id>/` for each case
+that ran and `post/sweep-summary.csv`, `validation/rig-<id>/`, and junk to hide (`scratch/`, `job.inp.bak`, `README.md~`, `templates/base.inp~`).
+
+The grid is `--grid ExTxM`: E moduli (integers, GPa), t thicknesses (`p` is the decimal point: `t2p0` = 2.0) and M mesh levels (the first M of
+coarse, medium, fine). The default is 4x5x3 = 60 cases; `--large` is 10x20x3 = 600. `--ran-fraction` (default 0.8, rounded) of the cases ran. The
+seed picks the grid values, the study name, parts and materials, which cases ran, and the mutation targets. The same seed, grid, fraction and spec
+give a byte-identical tree and truth (tested).
+
+A spec is `mutations:`, a list of `{class, variant?, count?}`, applied in a fixed class order. The closed list of 9 classes (kind/status as ruled
+by the Architect, 2026-11-27):
+
+| class | example | kind/status |
+|---|---|---|
+| missing-input-deck | a case that did not run has no `job.inp` | structure/missing (path `<case>/job.inp`) |
+| results-without-deck | a case that ran has no `job.inp` | structure/missing (path `<case>/job.inp`; never the same case as the class above) |
+| off-grammar-case-name, variants no-decimal, wrong-case, stray-suffix | `case_E210_t2_mesh-fine`, `Case_E210_t2p0_mesh-fine`, `case_E210_t2p0_final_v2` | naming/misnamed (a folder under `cases/` is a case); rule PG-case or PG-case-any, below |
+| off-grid-value, variants E, t | `case_E999_...`, `case_E210_t9p9_...` | naming/off-grid |
+| duplicate-combination, variants E, t | `case_E0210_...` beside `case_E210_...`, `t2p00` beside `t2p0` | structure/duplicate (path: the SECOND folder in sorted path order) |
+| stray-deck | `cases/job_old.inp` at the level of the case folders | structure/unexpected |
+| bad-mesh-level | `case_E210_t2p0_mesh-ultra`, in case names only (mesh is a grid axis) | naming/off-grid |
+| unexpected-top-level-folder | `study-<name>/misc/` | structure/unexpected |
+| orphan-post | `post/<case-id>/` whose case is gone | structure/unexpected ("no matching case") |
+
+A mutation that renames or removes a case removes that case's `post/` folder too (except orphan-post), so each mutation is one deviation. Each
+mutation uses its own case. off-grid and duplicate are found only against a declared grid (the profile instance, A2). A bad mesh level is never
+injected into `mesh/` file names: those are not judged against the levels in 0.1.0.
+
+**The expected rule of a misnamed case folder** is decided by one stated criterion, the same in the generator (`expected_case_rule`) and the engine:
+the name has the case SHAPE (the last segment of the PG-case pattern with its literals compared ignoring case and each regex token relaxed to
+one character or more: `case_E.+_t.+_mesh-.+`, any case) gives PG-case; any other folder name directly under `cases/` gives the catch-all
+PG-case-any. So `case_E210_t2_mesh-fine` and `Case_E210_...` are PG-case, `case_E210_t2p0_final_v2` and `case_E210_t2p0_mesh-` are PG-case-any.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
