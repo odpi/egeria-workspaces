@@ -336,7 +336,48 @@ def layout(seed: int, grid: tuple = DEFAULT_GRID, ran_fraction: float = 0.8) -> 
     return clean_tree(seed, grid, ran_fraction)[1]
 
 
+# ---- the profile instance and drift ---------------------------------------------------------------------------------------------------------------
+def instance(lay: dict, extra_e: tuple = ()) -> dict:
+    """The profile instance of a generated sweep: its declared grid (E, t and mesh values of PG-case), for recognize --instance. `extra_e` declares
+    moduli that no case uses yet (a sweep planned wider than it has run)."""
+    return {"instance_of": "fea-sweep", "id": f"grid-{lay['study'][len('study-'):]}",
+            "evidence": f"the declared grid of {lay['study']} (written by fea_sweep_gen)",
+            "grid": {"PG-case": {"E": sorted(set(lay["E"]) | set(extra_e)), "t": [fmt_t(t) for t in lay["t"]], "mesh": list(lay["mesh"])}}}
+
+
+def evolve(files: dict, lay: dict, seed: int, add: int = 6, remove: int = 2, rename: int = 1) -> tuple[dict, int, list]:
+    """A later state of a CLEAN sweep, for drift: `add` new cases at a new modulus (each with job.inp and run.log; not run yet), `remove` cases gone
+    (with their post/ folders) and `rename` cases moved to another new grid point of the new modulus (with their post/ folders). Returns (files, the
+    new modulus, the (old, new) case renames). Declare the new modulus in the instance (extra_e) so the added cases are on the grid."""
+    rng = random.Random(f"fea_sweep_gen:{seed}:evolve")
+    s = lay["study"] + "/"
+    e_new = rng.choice([e for e in E_POOL if e not in lay["E"]])
+    points = [case_id(e_new, t, lv) for t in lay["t"] for lv in lay["mesh"]]
+    if add + rename > len(points) or remove + rename > len(lay["cases"]):
+        raise SpecError("evolve: the grid is too small for that many changes")
+    files = dict(files)
+    for c in points[:add]:
+        files[f"{s}cases/{c}/job.inp"] = placeholder("input deck")
+        files[f"{s}cases/{c}/run.log"] = placeholder("run log")
+    picked = rng.sample(sorted(lay["cases"]), remove + rename)
+    for c in picked[:remove]:
+        for p in [p for p in files if p.startswith(f"{s}cases/{c}/") or p.startswith(f"{s}post/{c}/")]:
+            del files[p]
+    renames = []
+    for c, new in zip(picked[remove:], points[add:add + rename]):
+        for p in sorted(p for p in files if p.startswith(f"{s}cases/{c}/") or p.startswith(f"{s}post/{c}/")):
+            files[p.replace(f"/{c}/", f"/{new}/", 1)] = files.pop(p)
+        renames.append((c, new))
+    return dict(sorted(files.items())), e_new, renames
+
+
 # ---- writing ---------------------------------------------------------------------------------------------------------------------------------------
+def write_instance(doc: dict, path: Path) -> None:
+    """Write a profile instance as YAML (PyYAML, block style, keys in the order given)."""
+    import yaml
+    Path(path).write_text(yaml.safe_dump(doc, sort_keys=False, default_flow_style=None), encoding="utf-8")
+
+
 def write_outputs(files: dict, truth: list, out: Path) -> None:
     """Write OUT/<path> for every file (OUT/study-<name>/...), OUT/paths.tsv and OUT/truth.jsonl. OUT must be absent or an empty directory."""
     out = Path(out)

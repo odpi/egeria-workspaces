@@ -257,3 +257,37 @@ def test_too_many_mutations_for_the_cases_left_are_refused():
         g.generate(1, grid=(1, 1, 1), spec=g.parse_spec({"mutations": [{"class": "orphan-post", "count": 2}]}))
     with pytest.raises(g.SpecError):
         g.generate(1, ran_fraction=1.0, spec=g.parse_spec({"mutations": [{"class": "missing-input-deck"}]}))     # no case that did not run
+
+
+# ---- the profile instance and evolve (A2) --------------------------------------------------------------------------------------------------------
+def test_instance_declares_the_grid_of_the_layout():
+    lay = g.layout(2)
+    doc = g.instance(lay, (999,))
+    assert doc["instance_of"] == "fea-sweep" and doc["id"] == "grid-" + lay["study"][len("study-"):]
+    assert doc["grid"] == {"PG-case": {"E": sorted(lay["E"] + [999]), "t": [g.fmt_t(t) for t in lay["t"]], "mesh": lay["mesh"]}}
+
+
+def test_write_instance_round_trips(tmp_path):
+    import yaml
+    doc = g.instance(g.layout(1))
+    g.write_instance(doc, tmp_path / "i.yaml")
+    assert yaml.safe_load((tmp_path / "i.yaml").read_text()) == doc
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_evolve_adds_removes_and_renames_cases(seed):
+    files, _ = g.generate(seed)
+    lay = g.layout(seed)
+    later, e_new, renames = g.evolve(files, lay, seed)
+    assert e_new not in lay["E"] and len(renames) == 1
+    before, after = set(cases_of(files)), set(cases_of(later))
+    added = after - before
+    assert len(after) == 64 and len(before - after) == 3 and len(added) == 7
+    assert all(g.parse_case(c)["E"] == str(e_new) for c in added)
+    (old, new), = renames
+    s = lay["study"]
+    assert old in before - after and new in added
+    assert sorted(p.rsplit("/", 1)[1] for p in later if p.startswith(f"{s}/cases/{new}/")) == sorted(p.rsplit("/", 1)[1] for p in files if p.startswith(f"{s}/cases/{old}/"))
+    gone = (before - after) - {old}
+    assert not any(p.split("/")[2] in gone for p in later if p.split("/")[1] == "post")
+    assert g.evolve(files, lay, seed) == (later, e_new, renames)

@@ -30,16 +30,19 @@ import re
 from dataclasses import dataclass, field
 
 FINDING_KINDS = ("structure", "naming", "content-type")
-FINDING_STATUSES = {"structure": ("missing", "unexpected"), "naming": ("misnamed",), "content-type": ("missing-field", "invalid-value", "unreadable")}
+FINDING_STATUSES = {"structure": ("missing", "unexpected", "duplicate"), "naming": ("misnamed", "off-grid"),
+                    "content-type": ("missing-field", "invalid-value", "unreadable")}       # duplicate and off-grid: a declared grid (04a, F4)
 CLAIM_KEYS = ("basis", "confidence", "evidence")
 PG_KEYS = ("id", "pattern", "tokens") + CLAIM_KEYS
-PG_OPTIONAL = ("yields", "tuned_on")
+PG_OPTIONAL = ("yields", "tuned_on", "match_of")
 NG_KEYS = ("id", "entities", "label", "suffixes", "extensions") + CLAIM_KEYS
 NG_OPTIONAL = ("tuned_on",)
 ENTITY_KEYS = ("key",)
 ENTITY_OPTIONAL = ("label", "token", "required_for")
 RQ_KEYS = ("id",) + CLAIM_KEYS
-RQ_OPTIONAL = ("path", "of", "for_each", "category", "tuned_on")
+RQ_OPTIONAL = ("path", "of", "for_each", "category", "tuned_on", "when_present")
+ST_KEYS = ("id", "of", "name", "absent") + CLAIM_KEYS        # a STATE counted per typed folder (04a, F3): never a finding
+ST_OPTIONAL = ("tuned_on",)
 CATEGORIES = ("standard", "study-consistency")   # a required path the standard asks for, or one a study's own protocol makes regular (B2)
 AO_KEYS = ("id", "under") + CLAIM_KEYS
 AO_OPTIONAL = ("dirs", "files", "name_grammar", "not_checked", "tuned_on")
@@ -91,6 +94,7 @@ class Claim:
 class PathPattern(Claim):
     pattern: str = ""
     yields: str | None = None
+    match_of: str | None = None              # 04a F5: a folder of this pattern needs a folder of that pattern with the same (normalised) shared tokens
     token_names: tuple = ()
     segs: tuple = ()                         # per segment: (strict regex, loose regex, literal-only text or None)
 
@@ -194,6 +198,15 @@ class Required(Claim):
     of: str | None = None
     for_each: tuple = ()
     category: str = "standard"
+    file: str | None = None                  # 04a F2: with `of`, the relative path every folder of that pattern must hold
+    when_present: str | None = None          # 04a F2: ... only where the folder holds this relative path
+
+
+@dataclass(frozen=True)
+class State(Claim):
+    of: str = ""
+    name: str = ""
+    absent: str = ""                         # a folder of `of` without this relative path is in the state (a count, never a finding)
 
 
 @dataclass(frozen=True)
@@ -278,7 +291,10 @@ def compile_path_grammar(where, raw, origin, bases, confidences, rule_id_re) -> 
     y = raw.get("yields")
     if y is not None and (not isinstance(y, str) or not y):
         raise GrammarError(f"{where}: yields must be a name")
-    return PathPattern(**_claim(where, raw, origin, bases, confidences), pattern=pat, yields=y, token_names=tuple(used), segs=tuple(segs))
+    mo = raw.get("match_of")
+    if mo is not None and (not isinstance(mo, str) or not rule_id_re.match(mo)):
+        raise GrammarError(f"{where}: match_of must name a path_grammar id")
+    return PathPattern(**_claim(where, raw, origin, bases, confidences), pattern=pat, yields=y, match_of=mo, token_names=tuple(used), segs=tuple(segs))
 
 
 def compile_name_grammar(where, raw, origin, bases, confidences, rule_id_re) -> NameGrammar:
@@ -345,8 +361,22 @@ def compile_required(where, raw, origin, bases, confidences, rule_id_re) -> Requ
     cat = raw.get("category", "standard")
     if cat not in CATEGORIES:
         raise GrammarError(f"{where}: category {cat!r} is not one of {list(CATEGORIES)}")
-    if ("path" in raw) == ("of" in raw):
-        raise GrammarError(f"{where}: exactly one of path (a literal path) or of (a path_grammar id, with for_each)")
+    def literal(key):
+        v = raw[key]
+        if not isinstance(v, str) or not v or v.startswith("/") or v.endswith("/") or any(s in ("", ".", "..") for s in v.split("/")) or "{" in v:
+            raise GrammarError(f"{where}: {key} must be a literal relative path")
+        return v
+    if "of" in raw and "path" in raw:                # 04a F2: a file every folder of the pattern holds (optionally only where another is present)
+        if "for_each" in raw:
+            raise GrammarError(f"{where}: of with path names a file of each folder of the pattern; it takes no for_each")
+        if not isinstance(raw["of"], str) or not raw["of"]:
+            raise GrammarError(f"{where}: of must name a path_grammar id")
+        return Required(**_claim(where, raw, origin, bases, confidences), of=raw["of"], file=literal("path"),
+                        when_present=literal("when_present") if "when_present" in raw else None, category=cat)
+    if "when_present" in raw:
+        raise GrammarError(f"{where}: when_present belongs to an item with of and path")
+    if "path" not in raw and "of" not in raw:
+        raise GrammarError(f"{where}: a literal path, of (a path_grammar id, with for_each), or of with path (a file of each folder)")
     if "path" in raw:
         p = raw["path"]
         if "for_each" in raw:
@@ -360,6 +390,19 @@ def compile_required(where, raw, origin, bases, confidences, rule_id_re) -> Requ
     if not fe:
         raise GrammarError(f"{where}: of needs for_each (the tokens whose every value seen must have the path)")
     return Required(**_claim(where, raw, origin, bases, confidences), of=raw["of"], for_each=fe, category=cat)
+
+
+def compile_state(where, raw, origin, bases, confidences, rule_id_re) -> State:
+    _keys(where, raw, ST_KEYS, ST_OPTIONAL)
+    _id(where, raw, rule_id_re)
+    where = f"{where} {raw['id']!r}"
+    for k in ("of", "name"):
+        if not isinstance(raw[k], str) or not raw[k]:
+            raise GrammarError(f"{where}: {k} must be a non-empty name")
+    a = raw["absent"]
+    if not isinstance(a, str) or not a or a.startswith("/") or a.endswith("/") or any(x in ("", ".", "..") for x in a.split("/")) or "{" in a:
+        raise GrammarError(f"{where}: absent must be a literal relative path")
+    return State(**_claim(where, raw, origin, bases, confidences), of=raw["of"], name=raw["name"], absent=a)
 
 
 def compile_allowed_only(where, raw, origin, bases, confidences, rule_id_re, glob_to_regex) -> AllowedOnly:
@@ -378,14 +421,26 @@ def compile_allowed_only(where, raw, origin, bases, confidences, rule_id_re, glo
                        name_grammar=lists["name_grammar"], not_checked=lists["not_checked"], not_checked_res=res)
 
 
-def check_references(where, path_grammar, name_grammar, required, allowed_only) -> None:
+def check_references(where, path_grammar, name_grammar, required, allowed_only, states=()) -> None:
     """Every id an item names must exist in the composed profile; a token named by for_each or by a name grammar's suffix list must be one the patterns define."""
     pg = {p.id: p for p in path_grammar}
     ng = {n.id for n in name_grammar}
+    for p in path_grammar:
+        if p.match_of is not None and (p.match_of not in pg or p.match_of == p.id):
+            raise GrammarError(f"{where} path_grammar {p.id!r}: match_of names {p.match_of!r}, not another path_grammar id")
+        if p.match_of is not None and not set(p.token_names) & set(pg[p.match_of].token_names):
+            raise GrammarError(f"{where} path_grammar {p.id!r}: match_of {p.match_of!r} shares no token with it")
+    for st in states:
+        if st.of not in pg:
+            raise GrammarError(f"{where} states {st.id!r}: of names {st.of!r}, not a path_grammar id")
+    if len({st.name for st in states}) != len(states):
+        raise GrammarError(f"{where} states: a state name is used twice")
     for r in required:
         if r.of is not None:
             if r.of not in pg:
                 raise GrammarError(f"{where} required {r.id!r}: of names {r.of!r}, not a path_grammar id")
+            if r.file is not None:
+                continue
             missing = [t for t in r.for_each if t not in pg[r.of].token_names]
             if missing:
                 raise GrammarError(f"{where} required {r.id!r}: for_each {missing} are not tokens of {r.of!r}")
@@ -411,10 +466,31 @@ class Result:
     not_checked_files: int = 0
     not_checked: list = field(default_factory=list)       # {path, reason, rule_id?, files}
     typed: dict = field(default_factory=dict)             # directory -> {path_grammar id: tokens}
+    states: dict = field(default_factory=dict)            # 04a F3: state name -> {rule_id, of, absent, checked, count, paths}
 
 
-def evaluate(paths, path_grammar, name_grammar, required, allowed_only) -> Result:
-    """Judge a tree, given as its (non-hidden) file paths, against the grammars. Deterministic: entries are visited in sorted order."""
+_NUMBER = re.compile(r"^[0-9]+(?:p[0-9]+)?$")
+
+
+def norm_token(v):
+    """04a: a token value or a declared grid value, normalised for comparison: a number written with `p` for the decimal point (2p0, 2p00, 0210) or
+    given as a number is a Decimal (2p00 == 2p0 == 2.0, E0210 == 210); anything else is its string."""
+    from decimal import Decimal
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, (int, float)):
+        return Decimal(str(v)).normalize()
+    v = str(v)
+    return Decimal(v.replace("p", ".")).normalize() if _NUMBER.match(v) else v
+
+
+def evaluate(paths, path_grammar, name_grammar, required, allowed_only, states=(), all_names=None, typing_paths=None) -> Result:
+    """Judge a tree, given as its (non-hidden) file paths, against the grammars. Deterministic: entries are visited in sorted order.
+
+    04a (inert when unused): `all_names` are ALL listed file paths, hidden ones included, for the presence tests of `required` files (F2) and of
+    `states` (F3), names only; `typing_paths` (given only when the profile has a required FILE item) add the folders that hold only hidden files
+    (outside hidden subtrees) for TYPING: such a folder takes a pattern it matches exactly and is looked into, and is otherwise ignored. Hidden files
+    are never judged."""
     pg = {p.id: p for p in path_grammar}
     ng = {n.id: n for n in name_grammar}
     kids: dict = {"": (set(), set())}
@@ -432,6 +508,13 @@ def evaluate(paths, path_grammar, name_grammar, required, allowed_only) -> Resul
         for i in range(len(parts)):
             d = "/".join(parts[:i])
             below[d] = below.get(d, 0) + 1
+    shown_dirs = set(kids)
+    for path in (typing_paths or ()):                     # F2 detail: folders that hold only hidden files, for typing
+        parts = path.split("/")
+        for i in range(len(parts) - 1):
+            d = "/".join(parts[:i])
+            kids.setdefault(d, (set(), set()))[0].add("/".join(parts[:i + 1]))
+            kids.setdefault("/".join(parts[:i + 1]), (set(), set()))
     res = Result()
     res.typed = {"": {".": {}}}
     misnamed_by_parent: dict = {}                         # (parent, rule id) -> lower-cased names reported misnamed
@@ -443,7 +526,7 @@ def evaluate(paths, path_grammar, name_grammar, required, allowed_only) -> Resul
         sub_dirs, sub_files = kids.get(d, (set(), set()))
         if not aos:
             for c in sorted(sub_dirs):
-                if c not in res.typed:
+                if c not in res.typed and c in shown_dirs:
                     res.not_checked.append({"path": c, "reason": "no-closed-set", "files": below.get(c, 0)})
                     res.not_checked_files += below.get(c, 0)
             if sub_files:
@@ -468,6 +551,8 @@ def evaluate(paths, path_grammar, name_grammar, required, allowed_only) -> Resul
                     res.typed[c] = hit
                     queue.append(c)
                     continue
+                if c not in shown_dirs:
+                    continue                              # a folder of hidden files only (F2 detail): typed when it matches, otherwise not judged
             elif name in allow_files or any(ng[i].check(name, caps) == "" for i in allow_ng):
                 res.checked_entries += 1
                 continue
@@ -500,7 +585,10 @@ def evaluate(paths, path_grammar, name_grammar, required, allowed_only) -> Resul
                 res.not_checked.append({"path": c, "reason": "below-finding", "files": below[c]})
                 res.not_checked_files += below[c]
 
-    dirs_present = set(kids)
+    dirs_present = set(shown_dirs)
+    names = set(all_names) if all_names is not None else files_set
+    name_dirs = {p.rsplit("/", 1)[0] for p in names if "/" in p}
+    name_dirs = {"/".join(d.split("/")[:i + 1]) for d in name_dirs for i in range(d.count("/") + 1)}
 
     def same_as_misnamed(path, rule_ids):
         parent, _, name = path.rpartition("/")
@@ -508,6 +596,17 @@ def evaluate(paths, path_grammar, name_grammar, required, allowed_only) -> Resul
 
     seen_missing: set = set()
     for r in required:
+        if r.file is not None:                            # F2: every folder of the pattern holds the file (where `when_present` is there)
+            for dd in sorted(d for d, t in res.typed.items() if r.of in t):
+                if r.when_present is not None and f"{dd}/{r.when_present}" not in names:
+                    continue
+                path = f"{dd}/{r.file}"
+                res.checked_required += 1
+                res.checked_by_category[r.category] = res.checked_by_category.get(r.category, 0) + 1
+                if path in names or path in name_dirs or same_as_misnamed(path, (r.of,) + tuple(a.id for a in allowed_only)):
+                    continue
+                res.findings.append({"path": path, "kind": "structure", "status": "missing", "rule": r})
+            continue
         if r.path is not None:
             expected = [(r.path, ())]
         else:
@@ -537,6 +636,20 @@ def evaluate(paths, path_grammar, name_grammar, required, allowed_only) -> Resul
             res.checked_required += 1
             res.checked_by_category[r.category] = res.checked_by_category.get(r.category, 0) + 1
             res.findings.append({"path": path, "kind": "structure", "status": "missing", "rule": r})
+    # F5: a folder of a pattern with match_of needs a folder of that pattern with the same shared tokens (normalised)
+    for p in (x for x in path_grammar if x.match_of is not None):
+        shared = [t for t in p.token_names if t in pg[p.match_of].token_names]
+        keys = {tuple(norm_token(t[p.match_of][k]) for k in shared) for t in res.typed.values() if p.match_of in t}
+        for dd in sorted(d for d, t in res.typed.items() if p.id in t):
+            if tuple(norm_token(res.typed[dd][p.id][k]) for k in shared) not in keys:
+                target = pg[p.match_of]
+                res.findings.append({"path": dd, "kind": "structure", "status": "unexpected", "rule": p, "reason": "no-match",
+                                     "evidence": f"no matching {target.yields or target.id}"})
+    # F3: states, counted per folder of the pattern; never a finding
+    for st in states:
+        dirs = sorted(d for d, t in res.typed.items() if st.of in t)
+        inside = [d for d in dirs if f"{d}/{st.absent}" not in names]
+        res.states[st.name] = {"rule_id": st.id, "of": st.of, "absent": st.absent, "checked": len(dirs), "count": len(inside), "paths": inside}
     return res
 
 
@@ -607,3 +720,76 @@ def check_content(where, items) -> None:
         fields = [c.field for c in mine if c.field is not None]
         if len(set(fields)) != len(fields):
             raise GrammarError(f"{where} content_checks: a field of {f} is checked twice")
+
+
+# ---- the profile instance: a declared grid (04a, F4) -------------------------------------------------------------------------------------------------
+# A small YAML beside the profile that declares, for path_grammar patterns, the values each token may take (the sweep's grid). It is the ONLY content
+# read for it (recognize --instance FILE), and with no instance there is no grid check at all. Values are compared normalised (norm_token).
+INSTANCE_KEYS = ("instance_of", "id", "grid")
+INSTANCE_OPTIONAL = ("evidence",)
+
+
+@dataclass(frozen=True)
+class Instance:
+    id: str
+    instance_of: str
+    grid: dict                               # path_grammar id -> {token: tuple of declared values}
+    evidence: str = ""
+
+
+def parse_instance(doc, profile_id, path_grammar, rule_id_re) -> Instance:
+    where = "instance"
+    _keys(where, doc, INSTANCE_KEYS, INSTANCE_OPTIONAL)
+    if doc["instance_of"] != profile_id:
+        raise GrammarError(f"{where}: instance_of {doc['instance_of']!r} is not the profile used ({profile_id!r})")
+    if not isinstance(doc["id"], str) or not rule_id_re.match(doc["id"]):
+        raise GrammarError(f"{where}: id must be a simple identifier")
+    pg = {p.id: p for p in path_grammar}
+    grid = doc["grid"]
+    if not isinstance(grid, dict) or not grid:
+        raise GrammarError(f"{where}: grid maps path_grammar ids to {{token: [values]}}")
+    out = {}
+    for pid, toks in grid.items():
+        if pid not in pg:
+            raise GrammarError(f"{where}: grid names {pid!r}, not a path_grammar id of the profile")
+        if not isinstance(toks, dict) or not toks:
+            raise GrammarError(f"{where}: grid.{pid} maps tokens to lists of values")
+        out[pid] = {}
+        for t, vals in toks.items():
+            if t not in pg[pid].token_names:
+                raise GrammarError(f"{where}: grid.{pid}: {t!r} is not a token of the pattern")
+            if not isinstance(vals, list) or not vals or not all(isinstance(v, (str, int, float)) and not isinstance(v, bool) for v in vals):
+                raise GrammarError(f"{where}: grid.{pid}.{t} needs a non-empty list of numbers or names")
+            if len({norm_token(v) for v in vals}) != len(vals):
+                raise GrammarError(f"{where}: grid.{pid}.{t} lists a value twice")
+            out[pid][t] = tuple(vals)
+    ev = doc.get("evidence", "")
+    if not isinstance(ev, str):
+        raise GrammarError(f"{where}: evidence must be a string")
+    return Instance(id=doc["id"], instance_of=profile_id, grid=out, evidence=ev.strip())
+
+
+def grid_findings(inst: Instance, typed: dict) -> tuple:
+    """(findings, items checked) of a declared grid over the typed folders: naming/off-grid for a folder with a token value outside the grid (one
+    finding per folder, naming every such token), structure/duplicate for the second and later folders (sorted path order) whose tokens are the same
+    as an earlier one's, normalised. Each folder of a grid pattern is two checked items (in the grid; unique)."""
+    out, checked = [], 0
+    for pid in sorted(inst.grid):
+        toks = inst.grid[pid]
+        dirs = sorted(d for d, t in typed.items() if pid in t)
+        first: dict = {}
+        for d in dirs:
+            checked += 2
+            vals = typed[d][pid]
+            bad = [t for t in toks if norm_token(vals[t]) not in {norm_token(v) for v in toks[t]}]
+            if bad:
+                ev = "; ".join(f"token {t} = {vals[t]} is not in the declared grid {t}: [{', '.join(str(v) for v in toks[t])}]" for t in bad)
+                out.append({"path": d, "kind": "naming", "status": "off-grid", "rule": Claim(id=f"{inst.id}.off-grid", basis="manifest", confidence="high",
+                            evidence=ev, origin=inst.id), "reason": ",".join(bad)})
+            key = tuple(norm_token(vals[t]) for t in sorted(vals))
+            if key in first:
+                out.append({"path": d, "kind": "structure", "status": "duplicate", "rule": Claim(id=f"{inst.id}.duplicate", basis="manifest",
+                            confidence="high", evidence=f"the same parameters as {first[key]}", origin=inst.id)})
+            else:
+                first[key] = d
+    return out, checked

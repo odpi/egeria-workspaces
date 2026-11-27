@@ -836,6 +836,63 @@ extraction is 100% on clean names (every case of seeds 1-3 and the large grid; t
 - One solver's naming: other FEA tools (Code_Aster `.comm`/`.export`/`.med`, Abaqus `.odb`) need their own profile variants; they are not in 0.1.0.
 - `templates/`, `materials/`, `mesh/`, `post/` and `validation/` are not closed sets; their file names are not judged.
 
+## Phase 2, notebook 04a, A2: conformance and drift on the sweep (F2 to F6), and the profile instance
+
+```
+python -m recognizer.recognize OUT/paths.tsv --out SURVEY --profile fea-sweep --instance fea-sweep.instance.yaml
+python -m recognizer.conformance SURVEY
+python -m recognizer.drift OLD_SURVEY NEW_SURVEY
+```
+
+`fea-sweep` 0.1.0 adds, by names only:
+- **RQ-case-deck**: every case folder holds `job.inp` (structure/missing at `<case>/job.inp`).
+- **RQ-case-status**: a case that holds `job.frd` (it RAN) also holds `job.sta`.
+- **ST-not-run**: a case without `job.frd` is counted as `not-run` in `classes.json` (`conformance.states`), with its path. It is a state, not a
+  finding, and it is not in the score.
+- **PG-post-case** with `match_of: PG-case`: a `post/<case-id>/` with no case of the same parameters is structure/unexpected, evidence "no matching
+  case". `post/` holds the case folders and `sweep-summary.csv` (AO-post); a case's post folder holds `summary.csv` and `plot-*.png` (not checked).
+
+**The profile instance** (`--instance FILE`): the grid comes from a small YAML that the notebook writes beside the profile, never from `sweep.yaml`
+(never opened). Its keys are `instance_of` (the profile id), `id`, `grid` and an optional `evidence`; `grid` maps a path_grammar id to the values
+each of its tokens may take, for example `{PG-case: {E: [70, 210], t: [2p0, 3p5], mesh: [coarse, medium, fine]}}`. It is read whole (at most
+64 KiB) by PyYAML's safe loader, it is the ONLY content read, and it is listed in `content-reads.txt` (`instance: <file name>`) and in
+`classes.json` (`conformance.instance`: id, file name, sha256, the grid). With no instance there is no grid check at all. Each typed folder of a
+grid pattern is two checked items:
+- **off-grid** (naming/off-grid, rule `<id>.off-grid`): a token value outside the declared grid. One finding per folder; its evidence names each
+  such token and the grid, and `reason` lists the tokens. The mesh level is a grid axis like E and t.
+- **duplicate** (structure/duplicate, rule `<id>.duplicate`): the second and later folders, in sorted path order, whose tokens equal an earlier
+  folder's. Its evidence names the first folder.
+
+Numbers are compared normalised: a value of digits with `p` as the decimal point, or a number in the instance, is a decimal, so `t2p00` == `t2p0`
+== 2.0 and `E0210` == `E210`. Anything else is compared as a string.
+
+**Engine features** (approved by the Architect, 2026-11-27; each is inert for a profile that does not use it, tested, and the Phase 1 and NB05
+outputs are byte-identical):
+- **F2**: a `required` item with `of` and `path` (and optionally `when_present`) asks that every folder typed by that pattern hold the file. Presence
+  is tested on ALL listed names, hidden ones included (names only, nothing opened). When a profile declares such an item, folders that hold only
+  hidden files (outside hidden subtrees such as `scratch/`) are typed too, so the missing deck of a case that holds only its (hidden) `run.log`
+  is found. Hidden files are still never judged against a closed set, and part formation and relevance counts do not change. A case of hidden
+  files only was already a part in A1 (parts are made from all names); with F2 it is also typed, so its part finding carries its tokens.
+- **F3**: `states: [{id, of, name, absent}]`, counted per typed folder.
+- **F4**: `--instance` (above); the statuses `off-grid` (kind naming) and `duplicate` (kind structure) join the closed lists.
+- **F5**: a path_grammar item may name `match_of: <path_grammar id>`; tokens the two patterns share are compared normalised.
+- **F6**: when either survey has PART findings, `drift.json` has `parts: {new, resolved, unchanged}` by finding id, and the Drift section of
+  `report.md` says so; otherwise the key is absent. Conformance drift is unchanged.
+
+**Results** (tests; seeds 1-3; the builder-written specs `samples/specs/fea-a.yaml`, every class once, and `fea-b.yaml`, the other variants with
+counts above one): clean trees have 0 conformance findings and score 1.0; clean to mutated gives `new` = exactly `truth.jsonl` by path, kind and
+status (and rule for the misnamed cases), with nothing resolved. Drift (`samples/fea_sweep_gen.py`'s `evolve`: add 6 cases at a new modulus,
+declared in the instance, remove 2, rename 1): 0 new and 0 resolved conformance findings; parts 7 new, 3 resolved, 57 unchanged. The rename is
+one resolved and one new, because **finding ids are path-based** (`sha256(profile@major | rule | path)`): move detection is backlog. Two runs
+give byte-identical outputs.
+
+**Known limits (0.1.0):**
+- Case state from names only: "ran" means `job.frd` exists. A run that failed but wrote partial results is not told apart from a good one; that
+  needs `.sta` content, a later decision.
+- A renamed case is one resolved part and one new part, not a move.
+- The grid is checked per token; a grid that is not a full product (some combinations never planned) cannot be declared, and a grid point with no
+  case is not reported.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.

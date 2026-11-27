@@ -28,12 +28,12 @@ import sys
 from pathlib import Path
 
 try:
-    from .layout_profile import Profile, Rule, compose_profiles, load_profile
+    from .layout_profile import RULE_ID, Profile, ProfileError, Rule, compose_profiles, load_profile
     from . import manifests as mf
     from . import grammar as gm
 except ImportError:                                   # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from layout_profile import Profile, Rule, compose_profiles, load_profile  # type: ignore
+    from layout_profile import RULE_ID, Profile, ProfileError, Rule, compose_profiles, load_profile  # type: ignore
     import manifests as mf  # type: ignore
     import grammar as gm  # type: ignore
 
@@ -101,8 +101,10 @@ def read_rows(path: Path):
 
 
 class Recognizer:
-    def __init__(self, profile: Profile, blob_source=None):
+    def __init__(self, profile: Profile, blob_source=None, instance=None):
         self.p = profile
+        self.instance = instance                      # 04a F4: a grammar.Instance (the declared grid) or None: no grid check at all
+        self.instance_file = None                     # (file name, sha256) of the instance, for content-reads.txt and classes.json
         self.blob_source = blob_source                # where manifests may be read from (a git object database or a tree); None = names and sizes only
         self.reading = None                           # the ManifestReading result of the last run (None when nothing was read)
         self.member_of: dict = {}                     # directory -> the Decl that declares it a workspace or module member
@@ -919,7 +921,7 @@ class Recognizer:
         path = the EXPECTED path for a `missing` one, so a missing file keeps its id across surveys."""
         r = f["rule"]
         out = {"finding_id": finding_id(self.p, r.id, f["path"]), "path": f["path"], "kind": f["kind"], "status": f["status"], "rule_id": r.id,
-               "basis": r.basis, "confidence": r.confidence, "evidence": r.evidence, "grain": "conformance", "profile_id": self.p.profile_id,
+               "basis": r.basis, "confidence": r.confidence, "evidence": f.get("evidence") or r.evidence, "grain": "conformance", "profile_id": self.p.profile_id,
                "profile_version": self.p.version}
         if f.get("reason"):
             out["reason"] = f["reason"]
@@ -968,19 +970,28 @@ class Recognizer:
                                   **ev})
         return found, checked, log, True
 
-    def conformance(self, paths: list) -> dict:
-        """Judge the tree (the files the profile does not hide) against the profile's grammars, required paths and closed sets (recognizer/grammar.py)."""
-        res = gm.evaluate(paths, self.p.path_grammar, self.p.name_grammar, self.p.required, self.p.allowed_only)
+    def conformance(self, paths: list, all_names: list | None = None, typing_paths: list | None = None) -> dict:
+        """Judge the tree (the files the profile does not hide) against the profile's grammars, required paths and closed sets (recognizer/grammar.py).
+        04a: `all_names` (every listed file, names only) for the presence tests of required files and states; `typing_paths` for typing folders that
+        hold only hidden files (only when the profile has a required FILE item); the declared grid of the instance, if one is given."""
+        res = gm.evaluate(paths, self.p.path_grammar, self.p.name_grammar, self.p.required, self.p.allowed_only, self.p.states, all_names, typing_paths)
         cfound, cchecked, clog, cenabled = self.content_conformance(set(paths))
         self.content_reads = clog
         self.typed = res.typed                                    # directory -> {path_grammar id: tokens} (F1: tokens on part findings)
-        found = [self.conformance_finding(f) for f in res.findings + cfound]
+        gfound, gchecked = gm.grid_findings(self.instance, res.typed) if self.instance is not None else ([], 0)
+        found = [self.conformance_finding(f) for f in res.findings + cfound + gfound]
         by: dict = {}
         for f in found:
             by.setdefault(f["kind"], {}).setdefault(f["status"], 0)
             by[f["kind"]][f["status"]] += 1
-        checked = res.checked_entries + res.checked_required + cchecked
+        checked = res.checked_entries + res.checked_required + cchecked + gchecked
         extra = {"content_reading": {"enabled": cenabled, "files_read": clog}} if self.p.content_checks else {}
+        if self.p.states:                                         # F3: counts, never findings, never in the score
+            extra["states"] = res.states
+        if self.instance is not None:                             # F4
+            extra["instance"] = {"id": self.instance.id, "file": self.instance_file[0] if self.instance_file else None,
+                                 "sha256": self.instance_file[1] if self.instance_file else None, "grid_checked": gchecked,
+                                 "grid": {pid: {t: [str(v) for v in vals] for t, vals in sorted(toks.items())} for pid, toks in sorted(self.instance.grid.items())}}
         cats = {r.category for r in self.p.required}
         if cats - {"standard"}:                                   # B2: the standard's items apart from a study's own consistency checks
             rule_cat = {r.id: r.category for r in self.p.required}
@@ -993,7 +1004,10 @@ class Recognizer:
             extra["by_category"] = per
             for f in found:
                 f["category"] = rule_cat.get(f["rule_id"], "standard")
-        return {"_findings": found, **extra, "checked": {"entries": res.checked_entries, "required": res.checked_required, "fields": cchecked, "total": checked},
+        chk = {"entries": res.checked_entries, "required": res.checked_required, "fields": cchecked, "total": checked}
+        if self.instance is not None:
+            chk["grid"] = gchecked
+        return {"_findings": found, **extra, "checked": chk,
                 "conformant": checked - len(found), "findings": {k: dict(sorted(v.items())) for k, v in sorted(by.items())}, "findings_total": len(found),
                 "score": round((checked - len(found)) / checked, 6) if checked else 1.0,
                 "not_checked": {"files": res.not_checked_files, "roots": sorted(res.not_checked, key=lambda x: (x["path"], x["reason"]))}}
@@ -1098,6 +1112,9 @@ class Recognizer:
 
         conformance = bool(self.p.allowed_only or self.p.required or self.p.content_checks)   # Phase 2: only a profile that declares conformance
         conf_paths: list = []                                          # the files conformance judges: every file the profile does not hide
+        f2 = conformance and any(r.file is not None for r in self.p.required)    # 04a F2: a required FILE item (presence on all names; typing detail)
+        all_names: list | None = [] if conformance and (f2 or self.p.states) else None
+        typing_paths: list | None = [] if f2 else None
         fj = open(out / "findings-files.jsonl", "w", encoding="utf-8", newline="\n") if per_file else None
         try:
             for path, size in read_rows(path_list):
@@ -1106,6 +1123,10 @@ class Recognizer:
                 rule, node, grain = self.classify(path)
                 if conformance and not (rule is not None and rule.relevance == "hidden"):
                     conf_paths.append(path)
+                if all_names is not None:
+                    all_names.append(path)
+                if typing_paths is not None and not (rule is not None and rule.relevance == "hidden" and grain == "subtree"):
+                    typing_paths.append(path)                          # every file outside a hidden subtree (scratch/ and the like stay out)
                 if rule is None:
                     bump(by_role, UNCLASSIFIED, size)
                     bump(by_rel, UNCLASSIFIED, size)
@@ -1158,7 +1179,7 @@ class Recognizer:
             findings.append(f)
         for fpath, (rule, site, info) in self.file_components.items():
             findings.append(self.finding(rule, fpath, "component", {**info, "part_of": site or "."}))
-        conf = self.conformance(conf_paths) if conformance else None
+        conf = self.conformance(conf_paths, all_names, typing_paths) if conformance else None
         if conf is not None:
             self._add_tokens(findings)
             findings.extend(conf.pop("_findings"))
@@ -1171,8 +1192,9 @@ class Recognizer:
             groups = self.candidate_copies(path_list, tuple(copies_of))
             (out / "candidate-copies.json").write_text(json.dumps({"kinds": sorted(copies_of), "groups": groups}, indent=2, sort_keys=True) + "\n",
                                                        encoding="utf-8")
-        if conf is not None and self.p.content_checks:              # the content files conformance opened (at most the closed list, at the root)
-            (out / "content-reads.txt").write_text("".join(p + "\n" for p in self.content_reads), encoding="utf-8")
+        if conf is not None and (self.p.content_checks or self.instance is not None):   # the content files conformance opened (at most the closed list, at the root)
+            reads = list(self.content_reads) + ([f"instance: {self.instance_file[0] if self.instance_file else self.instance.id}"] if self.instance is not None else [])
+            (out / "content-reads.txt").write_text("".join(p + "\n" for p in reads), encoding="utf-8")
         if self.reading is not None:                                # names only: the paths opened, in order (evidence for the read log)
             (out / "manifest-reads.txt").write_text("".join(p + "\n" for p in self.reading.log), encoding="utf-8")
         top_components.sort()
@@ -1221,6 +1243,20 @@ class Recognizer:
         return classes
 
 
+def load_instance(path: Path, profile: Profile):
+    """(grammar.Instance, (file name, sha256)) of a profile instance file (04a F4). The file is read whole (it is small: at most 64 KiB) and parsed
+    by PyYAML's safe loader; it is the only content read for the grid."""
+    import yaml
+    data = Path(path).read_bytes()
+    if len(data) > 65536:
+        raise ProfileError(f"{path}: an instance is at most 64 KiB")
+    try:
+        inst = gm.parse_instance(yaml.safe_load(data.decode("utf-8")), profile.profile_id, profile.path_grammar, RULE_ID)
+    except (gm.GrammarError, yaml.YAMLError) as exc:
+        raise ProfileError(f"{path}: {exc}") from exc
+    return inst, (Path(path).name, hashlib.sha256(data).hexdigest())
+
+
 def render_report(c: dict) -> str:
     lines = [f"# Layout recognition: {c['profile']['profile_id']} {c['profile']['version']} ({c['profile']['status']})", "",
              f"Files: {c['total_files']:,}. Bytes: {c['total_bytes']:,}.", "",
@@ -1261,11 +1297,15 @@ def main(argv=None) -> int:
     src.add_argument("--blobs-git", nargs=2, metavar=("REPO", "REV"), help="let the profile's manifest reading read blobs of REV from the git repository REPO")
     src.add_argument("--blobs-dir", type=Path, metavar="DIR", help="let the profile's manifest reading read files below DIR (a non-git tree; symlinks not followed)")
     ap.add_argument("--per-file", action="store_true", help="also write findings-files.jsonl, one finding per file (debugging; large)")
+    ap.add_argument("--instance", type=Path, metavar="FILE", help="the profile instance: a YAML declaring the grid of path_grammar tokens (04a); the only file read for it")
     a = ap.parse_args(argv)
     prof = compose_profiles(a.profile, a.profiles_dir)
+    inst = load_instance(a.instance, prof) if a.instance else None
     source = mf.GitBlobSource(*a.blobs_git) if a.blobs_git else (mf.FileSource(str(a.blobs_dir)) if a.blobs_dir else None)
     try:
-        c = Recognizer(prof, blob_source=source).run(a.pathlist, a.out, per_file=a.per_file, copies_of=tuple(a.copies_of))
+        rec = Recognizer(prof, blob_source=source, instance=inst[0] if inst else None)
+        rec.instance_file = inst[1] if inst else None
+        c = rec.run(a.pathlist, a.out, per_file=a.per_file, copies_of=tuple(a.copies_of))
     finally:
         if source is not None:
             source.close()
