@@ -14,8 +14,10 @@
 # markdown-header.html uses marked 15, and mermaid 11, highlight.js 11, DOMPurify 3 and svg-pan-zoom 3 (the mermaid graph pages).
 # Moving a page to a new major is a code change, not a refresh.
 #
-# Fails (non-zero, portal-vendor/ untouched) if: a tarball's sha512 does not match the registry, a listed file is missing from a
-# tarball, a written file's sha256 does not match what was extracted, or the total exceeds 15 MB (C6).
+# Fails (non-zero, portal-vendor/ untouched) if: a tarball URL is not on the registry's own scheme and host, a tarball's sha512 does
+# not match the registry, a listed file is missing from a tarball, a written file's sha256 does not match what was extracted, a
+# file's version does not match its folder (<name>@<major> holds that major; <name>@<x.y.z> holds exactly that version), or the
+# total exceeds 15 MB (C6).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,7 +26,7 @@ REGISTRY="${NPM_REGISTRY:-https://registry.npmjs.org}"
 MODE="${1:-fetch}"
 
 exec python3 -I - "$MODE" "$VENDOR" "$REGISTRY" <<'PY'
-import base64, hashlib, io, json, os, shutil, sys, tarfile, tempfile, urllib.request
+import base64, hashlib, io, json, os, re, shutil, sys, tarfile, tempfile, urllib.parse, urllib.request
 
 mode, vendor, registry = sys.argv[1], sys.argv[2], sys.argv[3].rstrip("/")
 MAX_BYTES = 15 * 1024 * 1024        # C6
@@ -88,6 +90,28 @@ def check_integrity(blob, integrity, what):
         die(f"{what}: tarball sha512 does not match the registry integrity")
 
 
+def check_tarball_host(url, what):
+    """The tarball must come from the registry the metadata came from (same scheme and host), never a URL elsewhere."""
+    t, r = urllib.parse.urlsplit(url), urllib.parse.urlsplit(registry)
+    if (t.scheme, t.netloc) != (r.scheme, r.netloc):
+        die(f"{what}: tarball URL {url} is not on the registry host {r.scheme}://{r.netloc}")
+
+
+FOLDER = re.compile(r"^(?P<name>.+)@(?P<ver>\d+(?:\.\d+\.\d+)?)$")
+
+
+def check_folder_version(row):
+    """A folder <name>@<major> holds that major; a folder <name>@<x.y.z> holds exactly that version."""
+    folder = row["path"].split("/")[0]
+    m = FOLDER.match(folder)
+    if not m or not re.fullmatch(r"\d+\.\d+\.\d+", row["version"]):
+        die(f"{row['path']}: folder {folder!r} or version {row['version']!r} is not <name>@<major|x.y.z> / x.y.z")
+    want = m.group("ver")
+    got = row["version"] if "." in want else row["version"].split(".")[0]
+    if got != want:
+        die(f"{row['path']}: folder says {want}, MANIFEST says {row['version']}")
+
+
 def read_manifest(path):
     with open(path, encoding="utf-8") as fh:
         rows = [line.rstrip("\n").split("\t") for line in fh if line.strip()]
@@ -116,6 +140,7 @@ def check(root):
         die(f"MANIFEST rows without a file: {sorted(set(listed) - on_disk)[:5]}")
     total = 0
     for rel, r in sorted(listed.items()):
+        check_folder_version(r)
         with open(os.path.join(root, rel), "rb") as fh:
             b = fh.read()
         total += len(b)
@@ -133,6 +158,7 @@ def fetch():
         for folder, pkg, major, files, trees in PACKAGES:
             version, dist = latest_in_major(pkg, major)
             url, integrity = dist["tarball"], dist.get("integrity", "")
+            check_tarball_host(url, f"{pkg}@{version}")
             blob = get(url)
             check_integrity(blob, integrity, f"{pkg}@{version}")
             with tarfile.open(fileobj=io.BytesIO(blob), mode="r:gz") as tf:
