@@ -560,6 +560,45 @@ Cause (the D6 gate-1 recorded exception, spring-boot, now spent): 109 of 114 lab
 
 Tune-set recall does not drop (1.00 on trellis, superset and datahub). The 146 unlabelled Maven fixtures under `src/intTest` and `src/dockerTest` are unchanged (out of scope), and so is the unlabelled count (147). The 5 labelled false positives left on spring-boot are not caused by this rule. The after figures are a fit: E1 was tuned after seeing D6, so it counts as fixed only after E3 (a fresh held-out code repository, Architect only).
 
+## Phase 2, notebook 05, B0: a seeded BIDS-shaped generator (`samples/bids_gen.py`)
+
+Command: `python samples/bids_gen.py --seed 1 --subjects 3 --sessions 2 --out OUT [--mutations SPEC.yaml]`. `OUT` must be absent or empty.
+
+It writes `OUT/dataset/` (the tree), `OUT/paths.tsv` (`path<TAB>size`, sorted, the same as `recognizer/listpaths.py` gives) and `OUT/truth.jsonl`
+(one line per injected deviation: path, kind, status, rule, class; empty for a clean tree).
+
+The tree holds, per subject (and per session when `--sessions` > 0), the modality folders `anat`, `func`, `dwi` and `fmap`, and the top-level files
+`dataset_description.json`, `README`, `participants.tsv` and `CHANGES`. Data files are empty and sidecars are `{}`. `dataset_description.json` has exactly
+three fields: `BIDSVersion` (1.11.2), `Name` and `License` (`CC0`). Labels are synthetic (`sub-01`, `sub-02`, ...). No real data.
+
+The seed picks the tasks, runs, echoes, an acquisition label, the field-map layout, the session labels and the mutation targets. The same seed, counts
+and spec give a byte-identical tree and truth (tested).
+
+A spec is `mutations:`, a list of `{class, variant?, count?, file?}`. Mutations are applied in a fixed class order, whatever the spec order. The
+closed list of 17 classes:
+
+| class | kind/status | expected rule |
+|---|---|---|
+| missing-top-level-file | structure/missing | RQ-dataset-description, RQ-readme, RQ-participants or RQ-changes |
+| missing-modality-folder | structure/missing | RQ-datatype-ses (RQ-datatype without sessions) |
+| unexpected-top-level-folder | structure/unexpected | AO-root |
+| unexpected-file-in-modality-folder | structure/unexpected | AO-datatype |
+| entity-order (`task-x_sub-01_...`) | naming/misnamed | NG-bids |
+| unknown-entity-key | naming/misnamed | NG-bids |
+| illegal-label-character (`sub-0_1`, `sub-01!`) | naming/misnamed | PG-subject |
+| wrong-case, variant dir (`Sub-01`) or file (`T1W`) | naming/misnamed | PG-subject or NG-bids |
+| wrong-extension (`.nii.zip` for `.nii.gz`; BIDS allows `.nii.gz` and `.nii`) | naming/misnamed | NG-bids |
+| session-inconsistency | structure/missing | RQ-session |
+| stray-name (a `final_v2`-style copy) | naming/misnamed | NG-bids |
+| bidsversion-missing, license-missing | content-type/missing-field | CT-bidsversion, CT-license |
+| bidsversion-invalid, license-empty, name-empty | content-type/invalid-value | CT-bidsversion, CT-license, CT-name |
+| malformed-json | content-type/unreadable | CT-unreadable |
+
+A `missing` deviation's path is the EXPECTED path. A subject-level mutation (illegal-label-character, wrong-case dir, session-inconsistency,
+missing-modality-folder) uses a whole subject, and one subject always stays untouched as a witness, so every folder required per subject is still seen
+somewhere. Conflicts (two content mutations of one field, malformed-json with another content mutation, too few subjects or sessions) are refused.
+Rule ids are those of `profiles/bids-dataset.yaml` (B2).
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
