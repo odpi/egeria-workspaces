@@ -1,8 +1,8 @@
 """Phase 1j J5: the provenance of a survey's configuration. What profile chain ran (ids, versions, shipped or overlay), every setting's value and whether it is
 the default, the rules disabled and replaced, the lists overridden, and `config_sha256`, the hash of the canonical effective configuration (the chain, the
 settings, the lists, every effective rule as compiled, the structural rules, the grammars and what is read). Documentation text (evidence, tuned_on, the
-settings' doc) is not part of the hash. Grammar items (path_grammar, name_grammar, required, allowed_only, content_checks) enter as their semantic fields
-only (GRAMMAR_KEEP); the last three only when the profile has them. Names only: nothing here reads a repository.
+settings' doc) is not part of the hash. Grammar items (path_grammar, name_grammar, required, allowed_only, content_checks) and 04a's states enter as their
+semantic fields only (GRAMMAR_KEEP); all but the first two only when the profile has them. Names only: nothing here reads a repository.
 """
 from __future__ import annotations
 
@@ -36,6 +36,7 @@ GRAMMAR_KEEP = {
     "Required": ("id", "basis", "confidence", "path", "of", "for_each", "category", "file", "when_present"),
     "AllowedOnly": ("id", "basis", "confidence", "under", "dirs", "files", "name_grammar", "not_checked"),
     "ContentCheck": ("id", "basis", "confidence", "file", "field", "regex", "non_empty"),
+    "State": ("id", "basis", "confidence", "of", "name", "absent"),                 # 04a F3
 }
 GRAMMAR_DROP = {
     "PathPattern": ("evidence", "origin", "tuned_on", "token_names"),               # token_names: read from pattern
@@ -43,8 +44,9 @@ GRAMMAR_DROP = {
     "Required": ("evidence", "origin", "tuned_on"),
     "AllowedOnly": ("evidence", "origin", "tuned_on", "not_checked_res"),            # not_checked_res: compiled from not_checked
     "ContentCheck": ("evidence", "origin", "tuned_on"),
+    "State": ("evidence", "origin", "tuned_on"),
 }
-GRAMMAR_OPTIONAL = ("required", "allowed_only", "content_checks")   # in the hash only when non-empty, so a profile without them keeps its config_sha256
+GRAMMAR_OPTIONAL = ("required", "allowed_only", "content_checks", "states")   # in the hash only when non-empty, so a profile without them keeps its config_sha256
 
 
 def _plain(v):

@@ -94,3 +94,53 @@ def test_a_profile_without_the_optional_grammar_lists_leaves_them_out(profile):
     canon = cfg.canonical(load_profile(profile, PROFILES))
     assert not set(cfg.GRAMMAR_OPTIONAL) & set(canon)
     assert canon["path_grammar"] == [] and canon["name_grammar"] == []
+
+
+# ---- G2: 04a's states (fea-sweep)
+FEA = yaml.safe_load((PROFILES / "fea-sweep.yaml").read_text(encoding="utf-8"))
+FEA_BASE = sha(copy.deepcopy(FEA))
+
+
+def test_g2_states_enter_as_semantic_dicts():
+    p = load_profile("fea-sweep", PROFILES)
+    assert FEA_BASE == cfg.config_sha256(p) and p.states
+    canon = cfg.canonical(p)
+    assert canon["states"] == [{k: getattr(s, k) for k in cfg.GRAMMAR_KEEP["State"]} for s in p.states]
+    assert all(not {"evidence", "tuned_on", "origin"} & set(x) for x in canon["states"])
+
+
+def test_g2_a_state_documentation_or_origin_edit_leaves_the_hash():
+    doc = copy.deepcopy(FEA)
+    for st in doc["states"]:
+        st["evidence"] = "other words, " + st["evidence"]
+        st["tuned_on"] = ["somewhere else"]
+    assert sha(doc) == FEA_BASE
+    p = load_profile("fea-sweep", PROFILES)
+    moved = dataclasses.replace(p, states=tuple(dataclasses.replace(s, origin="elsewhere") for s in p.states))
+    assert cfg.config_sha256(moved) == cfg.config_sha256(p)
+
+
+STATE_EDITS = {
+    "absent": lambda st, d: st.__setitem__("absent", st["absent"] + ".x"),
+    "name": lambda st, d: st.__setitem__("name", st["name"] + "-x"),
+    "id": lambda st, d: st.__setitem__("id", st["id"] + "-x"),
+    "confidence": lambda st, d: st.__setitem__("confidence", "low" if st["confidence"] != "low" else "high"),
+    "of": lambda st, d: st.__setitem__("of", next(x["id"] for x in d["path_grammar"] if x["id"] != st["of"])),
+    "a state removed": lambda st, d: d["states"].remove(st),
+}
+
+
+@pytest.mark.parametrize("what", sorted(STATE_EDITS))
+def test_g2_a_state_change_moves_the_hash(what):
+    doc = copy.deepcopy(FEA)
+    STATE_EDITS[what](doc["states"][0], doc)
+    assert doc != FEA
+    try:
+        moved = sha(doc)
+    except Exception as exc:
+        pytest.fail(f"{what}: the edited profile does not load: {exc}")
+    assert moved != FEA_BASE, what
+
+
+def test_g2_a_profile_without_states_leaves_them_out():
+    assert "states" not in cfg.canonical(load_profile("bids-dataset", PROFILES))
