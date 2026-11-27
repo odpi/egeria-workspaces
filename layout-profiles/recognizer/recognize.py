@@ -188,7 +188,7 @@ class Recognizer:
             return False
         if r.segments and not any(s in r.segments for s in segs):
             return False
-        if r.segment_res and not any(rx.search(sg) for sg in segs for rx in r.segment_res):
+        if r.has_segment_test and not r.segment_matches(segs):
             return False
         if r.globs and (not d or not any(g.match(d) for g in r.globs)):
             return False
@@ -741,8 +741,8 @@ class Recognizer:
         profile's exclusion rule for that segment instead of the member rule: the same principle as for a manifest project."""
         segs = d.split("/")
         for r in self.dir_rules:
-            if r.role in ("fixture", "example", "tooling", "test-support") and r.grain == "dir" and (r.segment_res or r.segments or r.group_seg_res):
-                if (r.segments and any(x in r.segments for x in segs)) or (r.segment_res and any(rx.search(x) for x in segs for rx in r.segment_res)):
+            if r.role in ("fixture", "example", "tooling", "test-support") and r.grain == "dir" and (r.has_segment_test or r.segments or r.group_seg_res):
+                if (r.segments and any(x in r.segments for x in segs)) or (r.has_segment_test and r.segment_matches(segs)):
                     return r
                 if r.group_seg_res and any(self._groups_projects("/".join(segs[:i]), r) and any(rx.search(segs[i - 1]) for rx in r.group_seg_res) for i in range(1, len(segs))):
                     return r
