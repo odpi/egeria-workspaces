@@ -871,8 +871,8 @@ outputs are byte-identical):
 - **F2**: a `required` item with `of` and `path` (and optionally `when_present`) asks that every folder typed by that pattern hold the file. Presence
   is tested on ALL listed names, hidden ones included (names only, nothing opened). When a profile declares such an item, folders that hold only
   hidden files (outside hidden subtrees such as `scratch/`) are typed too, so the missing deck of a case that holds only its (hidden) `run.log`
-  is found. Hidden files are still never judged against a closed set, and part formation and relevance counts do not change. A case of hidden
-  files only was already a part in A1 (parts are made from all names); with F2 it is also typed, so its part finding carries its tokens.
+  is found. Hidden files are still never judged against a closed set, and part formation, relevance counts and shares do not change. A case
+  folder whose files are all hidden is still a part; F2 types it, so its missing deck is reported (and its part finding carries its tokens).
 - **F3**: `states: [{id, of, name, absent}]`, counted per typed folder.
 - **F4**: `--instance` (above); the statuses `off-grid` (kind naming) and `duplicate` (kind structure) join the closed lists.
 - **F5**: a path_grammar item may name `match_of: <path_grammar id>`; tokens the two patterns share are compared normalised.
@@ -887,11 +887,35 @@ one resolved and one new, because **finding ids are path-based** (`sha256(profil
 give byte-identical outputs.
 
 **Known limits (0.1.0):**
-- Case state from names only: "ran" means `job.frd` exists. A run that failed but wrote partial results is not told apart from a good one; that
-  needs `.sta` content, a later decision.
+- Case state from names only: "ran" means `job.frd` exists. A run attempt that failed but wrote partial results is not told apart from a good
+  one; that needs `.sta` content, a later decision (D2).
 - A renamed case is one resolved part and one new part, not a move.
 - The grid is checked per token; a grid that is not a full product (some combinations never planned) cannot be declared, and a grid point with no
   case is not reported.
+
+## Phase 2, notebook 04a, A3: the notebook
+
+`coco-workbooks/7. layout-semantics/04a simulation-case-layout.ipynb` generates a clean sweep (seed 1, 4x5x3), recognizes it with
+`generic-relevance` alone (497 assets shown in 116 folders, no component) and with `fea-sweep` (1 sweep, 60 cases, 61% hidden output), prints a
+parameter table from the case tokens, writes the profile instance in its work folder and checks conformance (100% conformant; 0 findings; 12
+not-run), injects `samples/specs/fea-a.yaml` (10 new findings, equal to `truth.jsonl`), answers the E1 layout questions (which cases exist, which
+ran, which are off-grid, where the results are) from the stored outputs, and reports drift after `evolve` (parts 7 new, 3 resolved). The Resource
+Explorer, Portal, Egeria and lineage cells are marked "Phase 3/4 — not run". Outputs are cleared. `tests/test_notebook04a.py` runs the code cells
+top to bottom with the network blocked and checks for cleared outputs, no absolute or local path, standard-library and PyYAML imports only, and
+the marked Phase 3/4 cells.
+
+**Terms** follow the Architect's glossary of simulation studies (2026-11-27): the **sweep** is the set of cases from one template over one declared
+grid, ONE component (the folder `study-<name>/`); a **case** is ONE grid point, a part of the sweep and never the sweep; a **run** is one attempt
+to execute a case; a **survey** is one snapshot, written once.
+
+**Known limits of 0.1.0 (cases, run attempts and versions; brief Amendment 2):**
+- One folder per case; "ran" means `job.frd` exists. A failed attempt is indistinguishable from a good one (names only).
+- CalculiX writes `job.*` in place, so a re-run overwrites the previous attempt and is invisible. A copied attempt folder (`case_..._v2`,
+  `_old`) is reported as a misnamed case, or as a duplicate when its parameters match.
+- Survey outputs are immutable snapshots; drift compares two snapshots. Attempts are not sealed, and nothing checks that a finished result was
+  left unchanged (UC14, not built).
+- A renamed case is one resolved finding plus one new finding.
+- Attempt folders, a current-attempt pointer, sealing and any read of `job.sta` are not built; they wait for Dan's decisions D1 and D2.
 
 ## Decisions made so far (for review)
 
