@@ -385,3 +385,74 @@ def test_the_two_rules_carry_the_same_closed_list():
     for n in I2_NAMES:
         assert tests_rx.search(n) and fx_rx.search(n)
     assert any(t.startswith("Phase 1i I2") for t in by["R-conv-tests"].tuned_on) and any(t.startswith("Phase 1i I2") for t in by["R-fx-test-project"].tuned_on)
+
+
+# ======================================================================== I3 ========================================================================================
+GRADLE_ROOT = {"build.gradle": "", "settings.gradle": "rootProject.name = 'r'\n", "src/main/java/A.java": "x"}
+
+
+def is_doc_component(r, d):
+    return d in r.top and r.f[d]["rule_id"] == "R-conv-src-docs" and r.f[d]["role"] == "component" and r.f[d]["kind"] == "documentation"
+
+
+# ---- (1) src/main/docs/guide/a.adoc + b.adoc + toc.yml: src/main/docs is a documentation component (not guide/)
+def test_a_guide_under_src_main_docs_is_a_documentation_component(tmp_path):
+    r = survey(tmp_path, {**GRADLE_ROOT, "src/main/docs/guide/a.adoc": "x", "src/main/docs/guide/b.adoc": "x", "src/main/docs/guide/toc.yml": "x"})
+    assert is_doc_component(r, "src/main/docs") and "src/main/docs/guide" not in r.allc and "src/main/docs/guide" not in r.f
+
+
+# ---- (2) src/docs/asciidoc/index.adoc + one more .adoc: src/docs is a component
+def test_src_docs_is_a_documentation_component(tmp_path):
+    r = survey(tmp_path, {**GRADLE_ROOT, "src/docs/asciidoc/index.adoc": "x", "src/docs/asciidoc/usage.adoc": "x"})
+    assert is_doc_component(r, "src/docs") and "src/docs/asciidoc" not in r.allc
+
+
+def test_a_site_config_in_a_direct_child_folder_is_enough(tmp_path):
+    r = survey(tmp_path, {**GRADLE_ROOT, "src/docs/site/antora.yml": "x", "src/docs/site/x.png": "x"})
+    assert is_doc_component(r, "src/docs")
+
+
+# ---- (3) src/main/docs/one.adoc alone: not a component (min_content)
+@pytest.mark.parametrize("files", [{"src/main/docs/one.adoc": "x"}, {"src/docs/a.png": "x", "src/docs/b.css": "x"}])
+def test_too_little_content_is_not_a_component(tmp_path, files):
+    r = survey(tmp_path, {**GRADLE_ROOT, **files})
+    d = "/".join(next(iter(files)).split("/")[:-1])
+    assert d not in r.allc and d not in r.f
+
+
+# ---- (4) inside a sub-project: unchanged
+@pytest.mark.parametrize("d", ["module/src/main/docs", "module/src/docs", "src/main/other/docs", "docs/src/docs", "src/test/docs"])
+def test_a_docs_folder_elsewhere_is_unchanged(tmp_path, d):
+    r = survey(tmp_path, {**GRADLE_ROOT, "module/build.gradle": "", f"{d}/a.adoc": "x", f"{d}/b.adoc": "x"})
+    assert r.f.get(d, {}).get("rule_id") != "R-conv-src-docs" and d not in r.allc
+
+
+def test_the_files_keep_their_roles(tmp_path):
+    files = {**GRADLE_ROOT, "src/main/docs/guide/a.adoc": "x", "src/main/docs/guide/b.md": "x"}
+    r = survey(tmp_path, files)
+    assert r.rule["src/main/docs/guide/a.adoc"] == "F-source-folder" and r.rule["src/main/docs/guide/b.md"] == "F-docs-markup-anywhere"
+
+
+# ---- (5) unaffected finding ids do not change
+def test_i3_leaves_finding_ids_of_unaffected_components_unchanged(tmp_path):
+    files1 = {**GRADLE_ROOT, "lib/pom.xml": "<project/>", "core/pyproject.toml": "[project]\nname='c'\n", "docs/a.md": "x", "docs/b.md": "x"}
+    r1 = survey(tmp_path, files1, out="r1", name="tree1")
+    r2 = survey(tmp_path, {**files1, "src/main/docs/a.adoc": "x", "src/main/docs/b.adoc": "x"}, out="r2", name="tree2")
+    assert is_doc_component(r2, "src/main/docs")
+    for d in ("core", "lib", "docs"):
+        rid = r1.f[d]["rule_id"]
+        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"code-repo-conventions@0|{rid}|{d}".encode()).hexdigest()[:16]
+
+
+def test_i3_in_the_composite_profile(tmp_path):
+    r = survey(tmp_path, {**GRADLE_ROOT, "src/main/docs/a.adoc": "x", "src/main/docs/b.adoc": "x"}, profile="code-repo-conventions,docs-site")
+    assert is_doc_component(r, "src/main/docs")
+
+
+def test_the_i3_rule_uses_the_same_minimum_content_as_r_conv_docs():
+    p = load_profile("code-repo-conventions", PROFILES)
+    by = {x.id: x for x in p.rules}
+    a, b = by["R-conv-docs"], by["R-conv-src-docs"]
+    assert (a.content_files, a.content_min, a.content_exts) == (b.content_files, b.content_min, b.content_exts)
+    assert [g.pattern for g in b.globs] == ["^src/docs$", "^src/main/docs$"] and b.grain == "component" and b.basis == "convention"
+    assert any(t.startswith("Phase 1i I3") for t in b.tuned_on) and "Known limit" in b.evidence
