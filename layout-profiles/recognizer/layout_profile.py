@@ -142,6 +142,9 @@ class Rule:
     file_scope: bool = False                     # H1: the directory this (grain dir) rule claims is a file-role scope, like a component directory, though it is not a component
     named_dir: bool = False                      # a subtree rule that names the directory (`name`) rather than a path: it is a directory rule
     scope: str = ""                              # file rules: '' | 'within' (under a component) | 'root' (directly in a component's directory)
+    list_refs: frozenset = field(default=frozenset(), compare=False)   # J2: the named lists the rule's match refers to
+    raw: Any = field(default=None, compare=False, repr=False)          # J2: the rule as written (before list resolution), to recompile it after a list override
+    ctx: tuple = field(default=(), compare=False, repr=False)          # J2: (roles, relevance map) of the defining profile, for that recompilation
 
     @property
     def is_dir_rule(self) -> bool:
@@ -203,6 +206,7 @@ class Profile:
     disabled: tuple = ()                         # J1: inherited rule ids this profile (and the profiles it extends) removed with `disable:`
     replaced: tuple = ()                         # J1: inherited rule ids a rule of the same id REPLACED at the inherited position
     effective_order: tuple = ()                  # J1: the ids of the effective rules, then of the file-role rules, in the order they are checked
+    overridden: tuple = ()                       # J2: the names of inherited lists this profile (and the profiles it extends) overrode
     structural: tuple = ()                       # structural rules (dicts), the child's first
 
     @property
@@ -224,25 +228,74 @@ def _check_keys(where: str, obj: Any, allowed: tuple, required: tuple = ()) -> N
         raise ProfileError(f"{where}: missing required key(s) {missing}")
 
 
-def _own_lists(source: str, raw: Any) -> dict:
-    """J0: a profile's `lists:` mapping, validated: names are slugs, each list is non-empty and holds non-empty strings. (A name written twice in one profile
-    is caught by load_profile on the YAML nodes, before the mapping collapses it.)"""
+LIST_OPS = ("replace", "add", "remove")
+
+
+def _check_items(where: str, items: Any) -> tuple:
+    if not isinstance(items, list) or not items or not all(isinstance(x, str) and x for x in items):
+        raise ProfileError(f"{where}: a non-empty list of non-empty strings is needed")
+    if len(set(items)) != len(items):
+        raise ProfileError(f"{where}: an item is listed twice")
+    return tuple(items)
+
+
+def _own_lists(source: str, raw: Any) -> tuple:
+    """J0/J2: a profile's `lists:` mapping, validated, split into DEFINITIONS (name -> a list) and OVERRIDES of inherited lists (name -> {replace: [...]},
+    {add: [...]} or {remove: [...]}, exactly one operation). Names are slugs; lists are non-empty lists of distinct non-empty strings. (A name written twice
+    in one profile is caught by load_profile on the YAML nodes, before the mapping collapses it.)"""
     if raw is None:
-        return {}
+        return {}, {}
     if not isinstance(raw, dict) or not raw:
-        raise ProfileError(f"{source}: lists must be a non-empty mapping of name -> list of strings")
-    out = {}
+        raise ProfileError(f"{source}: lists must be a non-empty mapping of name -> list of strings (or an override of an inherited list)")
+    defs, overrides = {}, {}
     for name, items in raw.items():
         if not isinstance(name, str) or not LIST_NAME.match(name):
             raise ProfileError(f"{source} lists: list name {name!r} must be a lowercase slug")
-        if not isinstance(items, list) or not items:
-            raise ProfileError(f"{source} lists.{name}: a list must be a non-empty list of strings")
-        if not all(isinstance(x, str) and x for x in items):
-            raise ProfileError(f"{source} lists.{name}: every item must be a non-empty string")
-        if len(set(items)) != len(items):
-            raise ProfileError(f"{source} lists.{name}: an item is listed twice")
-        out[name] = tuple(items)
+        if isinstance(items, dict):
+            if len(items) != 1 or next(iter(items)) not in LIST_OPS:
+                raise ProfileError(f"{source} lists.{name}: an override is a mapping with exactly one of {list(LIST_OPS)}")
+            op, vals = next(iter(items.items()))
+            vals = _check_items(f"{source} lists.{name}.{op}", vals)
+            if any("/" in x for x in vals):
+                raise ProfileError(f"{source} lists.{name}.{op}: an item may not contain '/'")
+            overrides[name] = (op, vals)
+        else:
+            defs[name] = _check_items(f"{source} lists.{name}", items)
+    return defs, overrides
+
+
+def _apply_override(where: str, base: tuple, op: str, vals: tuple) -> tuple:
+    """J2: an override of an inherited list. replace: the new items; add: appended (each must be new); remove: dropped (each must be in the list).
+    The result must be non-empty, strings, no '/'."""
+    if op == "replace":
+        out = vals
+    elif op == "add":
+        dup = [x for x in vals if x in base]
+        if dup:
+            raise ProfileError(f"{where}: add names item(s) already in the list: {dup}")
+        out = base + vals
+    else:
+        missing = [x for x in vals if x not in base]
+        if missing:
+            raise ProfileError(f"{where}: remove names item(s) not in the list: {missing}")
+        out = tuple(x for x in base if x not in vals)
+    if not out:
+        raise ProfileError(f"{where}: the list would be empty")
+    if not all(isinstance(x, str) and x and "/" not in x for x in out):
+        raise ProfileError(f"{where}: every item must be a non-empty string without '/'")
     return out
+
+
+def _list_refs(obj: Any) -> set:
+    """J2: the names of the lists a rule's match refers to ($name or {$name})."""
+    if isinstance(obj, dict):
+        return set().union(*(_list_refs(v) for v in obj.values())) if obj else set()
+    if isinstance(obj, list):
+        return set().union(*(_list_refs(v) for v in obj)) if obj else set()
+    if isinstance(obj, str):
+        m = LIST_REF.match(obj)
+        return {m.group(1)} if m else set(LIST_INTERP.findall(obj))
+    return set()
 
 
 def _resolve_lists(where: str, obj: Any, lists: dict) -> Any:
@@ -278,6 +331,7 @@ def _resolve_lists(where: str, obj: Any, lists: dict) -> Any:
 
 def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: str, lists: dict | None = None) -> Rule:
     _check_keys(where, raw, RULE_KEYS + RULE_OPTIONAL_KEYS, RULE_KEYS)
+    written, refs = raw, frozenset(_list_refs(raw.get("match")))
     if lists is not None and isinstance(raw.get("match"), dict):
         raw = {**raw, "match": _resolve_lists(f"{where} rule {raw.get('id')!r} match", raw["match"], lists)}
     rid = raw["id"]
@@ -449,6 +503,7 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
         except re.error as exc:
             raise ProfileError(f"{where}: bad name_regex {rx!r}: {exc}") from exc
     return Rule(
+        list_refs=refs, raw=written, ctx=(tuple(roles), dict(rel_map)),
         tuned_on=tuple(tuned_on), id=rid, match=dict(match), role=role, relevance=relevance, kind=assign.get("kind"), grain=grain, basis=raw["basis"],
         confidence=raw["confidence"], evidence=evidence.strip(), origin=origin,
         segments=frozenset(_as_list(match.get("path_segment", []))), names=frozenset(_as_list(match.get("name", []))),
@@ -653,7 +708,7 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     extends = doc.get("extends") or []
     if not isinstance(extends, list):
         raise ProfileError(f"{source}: extends must be a list of profile ids")
-    own_lists = _own_lists(source, doc.get("lists"))
+    own_lists, overrides = _own_lists(source, doc.get("lists"))
     bases = []
     for base_id in extends:                                  # J0: the extended profiles are loaded FIRST, so this profile's rules can refer to their lists
         if profiles_dir is None:
@@ -667,7 +722,12 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
             lists[name] = items
     for name in own_lists:
         if name in lists:
-            raise ProfileError(f"{source}: list {name!r} is already defined by an extended profile (a profile may not redefine an inherited list)")
+            raise ProfileError(f"{source}: list {name!r} is already defined by an extended profile (to change an inherited list, write "
+                               f"{{replace: [...]}}, {{add: [...]}} or {{remove: [...]}})")
+    for name, (op, vals) in overrides.items():                # J2: overrides of INHERITED lists
+        if name not in lists:
+            raise ProfileError(f"{source} lists.{name}: overrides an unknown list (no extended profile defines it)")
+        lists[name] = _apply_override(f"{source} lists.{name}.{op}", lists[name], op, vals)
     lists.update(own_lists)
     own_rules = []
     raw_rules = doc["rules"]
@@ -729,6 +789,12 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
             out.append(rule)
         return out
     inh_rules, inh_fr = dedupe(inh_rules, "rules"), dedupe(inh_fr, "file_roles")
+    if overrides:                                            # J2: an inherited rule that refers to an overridden list is recompiled with the overridden list
+        def recompile(r):
+            if not (r.list_refs & set(overrides)) or r.raw is None:
+                return r
+            return _compile_rule(f"{source} (list override, rule of {r.origin!r})", r.raw, r.ctx[0], r.ctx[1], r.origin, lists)
+        inh_rules, inh_fr = [recompile(r) for r in inh_rules], [recompile(r) for r in inh_fr]
     inh_rule_ids, inh_fr_ids = {r.id for r in inh_rules}, {r.id for r in inh_fr}
     # J1: `disable:` removes inherited rules; an own rule with an inherited id REPLACES that rule at the inherited position (first-match order kept)
     disable = doc.get("disable")
@@ -790,7 +856,8 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
                    relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), manifest_reading=mreading, extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
                    composed_of=tuple(composed), structural=tuple(structural), lists=lists,
                    disabled=tuple(dict.fromkeys(inh_disabled + disable)), replaced=tuple(dict.fromkeys(inh_replaced + replaced)),
-                   effective_order=tuple(r.id for r in rules) + tuple(r.id for r in fr_out))
+                   effective_order=tuple(r.id for r in rules) + tuple(r.id for r in fr_out),
+                   overridden=tuple(dict.fromkeys([x for b in bases for x in b.overridden] + list(overrides))))
 
 
 def load_profile(profile_id_or_path: str, profiles_dir: Path | str | None = None, _stack: tuple = ()) -> Profile:

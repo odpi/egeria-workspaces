@@ -306,3 +306,83 @@ def test_a_replaced_rule_changes_only_its_own_claims(tmp_path):
     assert [r.id for r in p.rules] == [r.id for r in base.rules] and p.replaced == ("R-conv-scripts",)
     r = run(tmp_path, p, {"pyproject.toml": "[project]\nname='r'\n", "scripts/a.sh": "x", "script/b.sh": "x"})
     assert r.f["scripts"]["rule_id"] == "R-conv-scripts" and "script" not in r.f
+
+
+# ======================================================================== J2 ========================================================================================
+def lbase(tmp_path):
+    write(tmp_path, "base", {**BASE, "profile_id": "base", "lists": {"mf": ["a.toml", "b.json"], "other": ["x.cfg"]},
+                             "rules": [rule({"has_file": "$mf"}, rid="A"), rule({"name_regex": ["^(?:{$mf})$"]}, rid="B"), rule({"has_file": "$other"}, rid="C")]})
+    return load_profile("base", tmp_path)
+
+
+@pytest.mark.parametrize("op,vals,want", [("replace", ["c.yml"], ("c.yml",)), ("add", ["c.yml"], ("a.toml", "b.json", "c.yml")),
+                                          ("remove", ["a.toml"], ("b.json",))])
+def test_each_override_changes_the_list_and_the_inherited_rules_that_use_it(tmp_path, op, vals, want):
+    b = lbase(tmp_path)
+    p = prof(tmp_path, name="child", extends=["base"], lists={"mf": {op: vals}}, rules=[rule({"has_file": "$mf"}, rid="OWN")])
+    by = {r.id: r for r in p.rules}
+    assert p.lists["mf"] == want and p.lists["other"] == ("x.cfg",) and p.overridden == ("mf",)
+    assert by["A"].has_files == frozenset(want) and by["OWN"].has_files == frozenset(want)
+    assert all(by["B"].name_res[0].search(x) for x in want) and not any(by["B"].name_res[0].search(x) for x in {"a.toml", "b.json"} - set(want))
+    assert by["A"].origin == "base"                                            # recompiled, still defined by the base
+    assert by["C"] is {r.id: r for r in b.rules}["C"] or by["C"] == {r.id: r for r in b.rules}["C"]    # a rule that does not use the list is untouched
+
+
+def test_an_override_carries_through_a_further_extends(tmp_path):
+    lbase(tmp_path)
+    write(tmp_path, "mid", {**BASE, "profile_id": "mid", "extends": ["base"], "lists": {"mf": {"add": ["c.yml"]}}, "rules": []})
+    p = prof(tmp_path, name="top", extends=["mid"], lists={"mf": {"remove": ["a.toml"]}}, rules=[])
+    assert p.lists["mf"] == ("b.json", "c.yml") and p.overridden == ("mf",) and {r.id: r for r in p.rules}["A"].has_files == frozenset({"b.json", "c.yml"})
+
+
+@pytest.mark.parametrize("lists,msg", [
+    ({"nope": {"add": ["x"]}}, "unknown list"),
+    ({"mf": {"add": ["a.toml"]}}, "already in the list"),
+    ({"mf": {"remove": ["zz"]}}, "not in the list"),
+    ({"mf": {"remove": ["a.toml", "b.json"]}}, "would be empty"),
+    ({"mf": {"replace": []}}, "non-empty"),
+    ({"mf": {"replace": ["a/b"]}}, "'/'"),
+    ({"mf": {"add": ["x", "x"]}}, "twice"),
+    ({"mf": {"add": [3]}}, "non-empty"),
+    ({"mf": {"add": ["x"], "remove": ["a.toml"]}}, "exactly one"),
+    ({"mf": {"append": ["x"]}}, "exactly one"),
+    ({"mf": ["c.yml"]}, "already defined by an extended profile"),
+])
+def test_a_bad_override_is_rejected(tmp_path, lists, msg):
+    lbase(tmp_path)
+    with pytest.raises(ProfileError, match=msg):
+        prof(tmp_path, name="child", extends=["base"], lists=lists, rules=[])
+
+
+def test_a_profile_cannot_override_its_own_list(tmp_path):
+    with pytest.raises(ProfileError, match="unknown list"):
+        prof(tmp_path, lists={"mf": {"add": ["x"]}}, rules=[rule({"has_file": "a"})])
+
+
+def test_a_new_list_and_an_override_in_one_profile(tmp_path):
+    lbase(tmp_path)
+    p = prof(tmp_path, name="child", extends=["base"], lists={"mine": ["q.txt"], "other": {"replace": ["y.cfg"]}}, rules=[rule({"has_file": "$mine"}, rid="M")])
+    assert p.lists["mine"] == ("q.txt",) and {r.id: r for r in p.rules}["C"].has_files == frozenset({"y.cfg"}) and p.overridden == ("other",)
+
+
+def test_the_shipped_profiles_override_nothing():
+    for pid in ("code-repo-conventions", "code-repo", "docs-site", "generic-relevance", "workspace-repo"):
+        assert load_profile(pid, PROFILES).overridden == ()
+
+
+# ---- on a tree: the shared test-folder list, overridden once, changes BOTH rules that use it
+def test_adding_a_test_folder_name_changes_both_test_folder_rules(tmp_path):
+    p = overlay(tmp_path, "mine", extends=["code-repo-conventions"], lists={"test-folder-names": {"add": ["qa"]}})
+    r = run(tmp_path, p, {"pyproject.toml": "[project]\nname='r'\n", "qa/x/package.json": '{"name": "x"}', "qa/y/package.json": '{"name": "y"}'})
+    assert r.f["qa"]["rule_id"] == "R-conv-tests" and r.f["qa/x"]["rule_id"] == "R-fx-test-project" and "qa/x" not in r.allc
+
+
+def test_removing_a_test_folder_name_changes_both_test_folder_rules(tmp_path):
+    p = overlay(tmp_path, "mine", extends=["code-repo-conventions"], lists={"test-folder-names": {"remove": ["e2e"]}})
+    r = run(tmp_path, p, {"pyproject.toml": "[project]\nname='r'\n", "e2e/a.ts": "x", "pkg/e2e/p/package.json": '{"name": "p"}'})
+    assert "e2e" not in r.f and "pkg/e2e/p" in r.allc and r.f["pkg/e2e/p"]["rule_id"] == "R-comp-package-json"
+
+
+def test_the_default_profile_keeps_qa_and_e2e_as_before(tmp_path):
+    r = run(tmp_path, load_profile("code-repo-conventions", PROFILES), {"pyproject.toml": "[project]\nname='r'\n", "qa/x/package.json": '{"name": "x"}', "e2e/a.ts": "x"})
+    assert "qa/x" in r.allc and r.f["e2e"]["rule_id"] == "R-conv-tests"
