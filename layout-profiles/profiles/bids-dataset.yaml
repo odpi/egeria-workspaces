@@ -6,7 +6,7 @@
 # BIDSVersion, Name and License of dataset_description.json (the only content read). Everything else BIDS allows is declared `not_checked`
 # (counted, never judged): derivatives/, sourcedata/, code/, stimuli/, phenotype/, other datatypes, scans and sessions files, top-level sidecars
 # and subject- and session-level sidecars and tables (inheritance). Stricter than BIDS on purpose, and stated per rule: README, participants.tsv and
-# CHANGES are REQUIRED here (BIDS 1.11.2: README and participants.tsv RECOMMENDED, CHANGES OPTIONAL; participants.tsv and CHANGES are scored as
+# CHANGES are REQUIRED here (BIDS 1.11.2: README and participants.tsv RECOMMENDED, CHANGES OPTIONAL; all three are scored as
 # study consistency, not as the standard), every subject must have every session seen in the dataset and every datatype folder seen
 # in that session (study-consistency checks, which BIDS itself does not require). The scanned root is the dataset root.
 profile_id: bids-dataset
@@ -85,9 +85,10 @@ required:
     evidence: "BIDS 1.11.2: dataset_description.json is REQUIRED at the dataset root"
   - id: RQ-readme
     path: README
+    category: study-consistency
     basis: convention
     confidence: high
-    evidence: "this profile requires a README at the dataset root (BIDS 1.11.2 RECOMMENDS one)"
+    evidence: "this profile requires a README at the dataset root; BIDS 1.11.2 RECOMMENDS README, so it is scored as study consistency"
   - id: RQ-participants
     path: participants.tsv
     category: study-consistency

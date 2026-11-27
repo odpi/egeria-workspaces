@@ -350,11 +350,11 @@ def test_study_consistency_is_scored_apart_from_the_standard(tmp_path):
     assert cats["standard"]["checked"] + cats["study-consistency"]["checked"] == c["conformance"]["checked"]["total"]
     assert {x["rule_id"]: x["category"] for x in f} == {"RQ-session": "study-consistency", "AO-datatype": "standard"}
     assert {r.id for r in PROF.required if r.category == "study-consistency"} == {"RQ-session", "RQ-datatype", "RQ-datatype-ses", "RQ-participants",
-                                                                                  "RQ-changes"}      # B6 G1
+                                                                                  "RQ-changes", "RQ-readme"}      # B6 G1, B6.1
 
 
 # ---- B6 (Architect's ds000117 read): three gaps of 0.1.0 closed in 0.1.1 ---------------------------------------------------------------------------
-@pytest.mark.parametrize("name,rule", [("CHANGES", "RQ-changes"), ("participants.tsv", "RQ-participants")])
+@pytest.mark.parametrize("name,rule", [("CHANGES", "RQ-changes"), ("participants.tsv", "RQ-participants"), ("README", "RQ-readme")])   # README: B6.1
 def test_g1_an_optional_or_recommended_top_level_file_is_study_consistency(tmp_path, name, rule):
     spec = g.parse_spec({"mutations": [{"class": "missing-top-level-file", "file": name}]})
     files, truth = g.generate(1, 3, 2, spec)
