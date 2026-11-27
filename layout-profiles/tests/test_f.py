@@ -237,6 +237,6 @@ def test_child_segment_regex_alone_is_a_directory_rule_and_matches_only_under_it
 def test_the_f1_rule_keeps_its_id_and_carries_provenance_and_the_known_limits():
     p = load_profile("code-repo-conventions", PROFILES)
     r = {x.id: x for x in p.rules}["R-fx-test-project"]
-    assert p.version == "0.9.0" and r.child_seg_parents == frozenset({"src"}) and len(r.child_seg_res) == 2 and r.role == "fixture"
+    assert p.version == "0.10.0" and r.child_seg_parents == frozenset({"src"}) and len(r.child_seg_res) == 2 and r.role == "fixture"
     assert "spring-boot (D6, spent)" in r.tuned_on and "src/it" in r.evidence and "Multiplatform" in r.evidence
     assert all("(?i)" not in rx.pattern for rx in r.child_seg_res)   # case-sensitive

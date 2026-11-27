@@ -242,6 +242,7 @@ class Decl:
     inherit: str | None = None                  # mkdocs: the INHERIT path string, as written (never opened through)
     included_builds: list = field(default_factory=list)  # gradle: the directories of `includeBuild('dir')` literals (internal tooling), as written
     project_dirs: dict = field(default_factory=dict)  # gradle: included project path -> the directory a projectDir literal maps it to
+    private: bool = False                       # package-json (I1): the top-level "private" field is exactly true (anything else is false)
 
 
 def _strs(value) -> list:
@@ -258,7 +259,12 @@ def extract(reader: str, path: str, data: bytes) -> Decl | None:
         ws = doc.get("workspaces")
         members = _strs(ws.get("packages") if isinstance(ws, dict) else ws)
         name = doc.get("name") if isinstance(doc.get("name"), str) else None
-        return Decl(reader, path, directory, "workspaces", name, members, aggregator=bool(members)) if (members or name) else None
+        private = doc.get("private") is True                          # I1: the boolean true only; "true", 1 or false are not private
+        if not (members or name or private):
+            return None
+        d = Decl(reader, path, directory, "workspaces", name, members, aggregator=bool(members))
+        d.private = private
+        return d
     if reader == "pnpm-workspace":
         doc = parse_yaml(data)
         members = _strs(doc.get("packages")) if isinstance(doc, dict) else []

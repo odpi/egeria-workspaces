@@ -129,7 +129,7 @@ def test_h1_in_the_composite_profile(tmp_path):
 def test_the_h1_rule_carries_provenance_and_the_known_limit():
     p = load_profile("code-repo-conventions", PROFILES)
     r = {x.id: x for x in p.rules}["R-conv-scripts"]
-    assert p.version == "0.9.0" and r.role == "tooling" and r.kind == "maintenance-scripts" and r.grain == "dir" and r.file_scope
+    assert p.version == "0.10.0" and r.role == "tooling" and r.kind == "maintenance-scripts" and r.grain == "dir" and r.file_scope
     assert "Known limit" in r.evidence and any(t.startswith("Phase 1h H1") for t in r.tuned_on)
 
 

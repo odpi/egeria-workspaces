@@ -120,7 +120,7 @@ def test_the_ci_folder_list_is_one_closed_list_in_both_places():
     p = load_profile("code-repo-conventions", PROFILES)
     by = {r.id: r for r in (*p.rules, *p.file_roles)}
     tool, fci = by["R-tool-package"], by["F-ci"]
-    assert p.version == "0.9.0"
+    assert p.version == "0.10.0"
     (rx,) = tool.segment_res
     alts = re.findall(r"\^\(\?:([^)]*)\)\$", rx.pattern)
     assert len(alts) == 2
@@ -275,7 +275,7 @@ def test_g2_reads_names_only(tmp_path):
 def test_both_docs_rules_share_the_lists_and_state_the_judgement():
     a = {r.id: r for r in load_profile("code-repo-conventions", PROFILES).rules}["R-conv-docs"]
     b = {r.id: r for r in load_profile("docs-site", PROFILES).rules}["R-docs-folder-top-level"]
-    assert load_profile("docs-site", PROFILES).version == "0.5.0" and load_profile("code-repo-conventions", PROFILES).version == "0.9.0"
+    assert load_profile("docs-site", PROFILES).version == "0.5.0" and load_profile("code-repo-conventions", PROFILES).version == "0.10.0"
     for r in (a, b):
         assert r.content_min == 2 and r.content_exts == (".md", ".mdx", ".rst", ".adoc", ".asciidoc", ".txt", ".ipynb")
         assert r.content_files == frozenset({"mkdocs.yml", "mkdocs.yaml", "docusaurus.config.js", "docusaurus.config.ts", "docusaurus.config.mjs", "docusaurus.config.cjs", "conf.py",
