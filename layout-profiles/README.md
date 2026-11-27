@@ -786,6 +786,56 @@ the name has the case SHAPE (the last segment of the PG-case pattern with its li
 one character or more: `case_E.+_t.+_mesh-.+`, any case) gives PG-case; any other folder name directly under `cases/` gives the catch-all
 PG-case-any. So `case_E210_t2_mesh-fine` and `Case_E210_...` are PG-case, `case_E210_t2p0_final_v2` and `case_E210_t2p0_mesh-` are PG-case-any.
 
+## Phase 2, notebook 04a, A1: the `fea-sweep` profile 0.1.0 and the parameter tokens on part findings (F1)
+
+`profiles/fea-sweep.yaml` (extends `generic-relevance`) recognizes a CalculiX-shaped parametric sweep by file NAMES only (`sweep.yaml`, decks
+and logs are never opened). The scanned root is the PARENT of `study-<name>/`. `tuned_on: "generated (fea_sweep_gen seeds 1-3)"`; no rule
+names a real study.
+
+- **One component, N parts.** The folder that holds `sweep.yaml` is ONE component, kind `simulation-sweep` (basis manifest: the file's presence,
+  as for `pyproject.toml`). Every folder directly under its `cases/` is a part (`part_of` the sweep), kind `simulation-case`.
+- **Supporting:** `templates/` and `materials/` (role source, kind `input`), `mesh/` (source, `mesh`), each case's `job.inp` (source,
+  `input-deck`), `post/` (role generated with relevance supporting, kind `derived`), `validation/` (test, `validation-reference`), and the
+  study's `README.md` and `sweep.yaml`.
+- **Hidden (counted per rule in `classes.json`, not shown):** `.frd`, `.dat` and `.12d` in a case (generated, `solver-results`); `.rout` and
+  `.rin` (generated, `solver-restart`); `.sta`, `.cvg` and `.msg` (runtime-output, `solver-status`); a case's `run.log` (runtime-output,
+  `run-log`); `scratch/` (scratch); and `*.bak` and `*~` below the study (backup, files only).
+- **Closed sets (conformance, names only):** the scanned root holds the study folder (AO-root); the study holds `README.md`, `sweep.yaml`,
+  `cases/` and the supporting folders (AO-study); `cases/` holds case folders only (AO-cases; a FILE there, such as `job_old.inp`, is
+  `structure`/`unexpected`); a case folder holds `job.inp` (AO-case; its hidden files are not judged). `templates/`, `materials/`, `mesh/`,
+  `post/` and `validation/` are not closed sets in 0.1.0.
+- **The case grammar** PG-case is `study-{study}/cases/case_E{E}_t{t}_mesh-{mesh}`: E `[0-9]+`, t `[0-9]+p[0-9]+` (`p` is the decimal point),
+  mesh `[a-z]+`. The values allowed are the grid's, declared in the profile instance (A2), not in the profile.
+- **The catch-all PG-case-any** is `study-{study}/cases/{case}` with the token regex `(?!)`. That regex never matches, so no folder ever conforms
+  to PG-case-any; but the engine reports a folder that has the SHAPE of an allowed pattern as misnamed, and a regex token's shape is any text, so
+  every folder under `cases/` that fails PG-case is `naming`/`misnamed`: cases/ holds only cases, so such a folder is a misnamed case. The rule
+  is PG-case when the name has PG-case's shape (`case_E.+_t.+_mesh-.+`, any case) and PG-case-any otherwise; the generator's
+  `expected_case_rule` states the same criterion (tested on both sides and on the boundary). It is a declared rule of this profile only.
+
+**F1, tokens on part findings** (approved by the Architect, 2026-11-27). A COMPONENT finding whose folder a path_grammar pattern with `yields`
+typed gets `yields` (the pattern's word, here `case`) and `tokens` (the raw name strings: `{"E": "210", "mesh": "fine", "study": "bracket",
+"t": "2p0"}`; `t2p00` stays `2p00`). A folder that fails the grammar is still a part, without tokens. Nothing changes for a profile whose
+`yields` patterns type no component folder (bids-dataset types subject folders, which are not components) or that has no `yields` (tested both
+ways); the Phase 1 and NB05 outputs are byte-identical.
+
+**Collapse (UC1), generic-relevance alone versus fea-sweep** (default grid 4x5x3; `--large` 10x20x3):
+
+| tree | files | folders | generic-relevance: components, hidden files, unclassified | fea-sweep: components + parts, hidden files (bytes) |
+|---|---:|---:|---|---|
+| seed 1 | 559 | 116 | 0, 62 (11.1%), 88.9% | 1 + 60, 342 = 61.2% (61.4% of bytes) |
+| seed 2 | 562 | 115 | 0, 62 (11.0%), 89.0% | 1 + 60, 348 = 61.9% (62.1%) |
+| seed 3 | 560 | 115 | 0, 62 (11.1%), 88.9% | 1 + 60, 345 = 61.6% (61.8%) |
+| seed 1 `--large` | 5,439 | 1,088 | 0, 602 (11.1%), 88.9% | 1 + 600, 3,386 = 62.3% (62.5%) |
+
+generic-relevance hides only the `.log` and `.bak` files and names no component, so a reader sees 497 files in 116 folders; fea-sweep shows one
+sweep of 60 cases and hides the solver output. Byte shares follow file shares because every generated file is a one-line placeholder. Token
+extraction is 100% on clean names (every case of seeds 1-3 and the large grid; tested). Clean trees: 0 conformance findings, score 1.0.
+
+**Known limits (0.1.0):**
+- Mesh file names under `mesh/` are not checked against the declared levels (0.1.0); a bad mesh level is found in case names only.
+- One solver's naming: other FEA tools (Code_Aster `.comm`/`.export`/`.med`, Abaqus `.odb`) need their own profile variants; they are not in 0.1.0.
+- `templates/`, `materials/`, `mesh/`, `post/` and `validation/` are not closed sets; their file names are not judged.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.

@@ -973,6 +973,7 @@ class Recognizer:
         res = gm.evaluate(paths, self.p.path_grammar, self.p.name_grammar, self.p.required, self.p.allowed_only)
         cfound, cchecked, clog, cenabled = self.content_conformance(set(paths))
         self.content_reads = clog
+        self.typed = res.typed                                    # directory -> {path_grammar id: tokens} (F1: tokens on part findings)
         found = [self.conformance_finding(f) for f in res.findings + cfound]
         by: dict = {}
         for f in found:
@@ -996,6 +997,20 @@ class Recognizer:
                 "conformant": checked - len(found), "findings": {k: dict(sorted(v.items())) for k, v in sorted(by.items())}, "findings_total": len(found),
                 "score": round((checked - len(found)) / checked, 6) if checked else 1.0,
                 "not_checked": {"files": res.not_checked_files, "roots": sorted(res.not_checked, key=lambda x: (x["path"], x["reason"]))}}
+
+    def _add_tokens(self, findings: list) -> None:
+        """Phase 2 notebook 04a, F1: a COMPONENT finding whose directory a path_grammar pattern with `yields` typed gets `yields` (the pattern's word)
+        and `tokens` (the raw name strings the pattern's tokens matched). Nothing changes for a profile with no such pattern on a component."""
+        ylds = {pp.id: pp.yields for pp in self.p.path_grammar if pp.yields}
+        if not ylds:
+            return
+        for f in findings:
+            if f.get("grain") != "component":
+                continue
+            d = "" if f["path"] == "." else f["path"]
+            hit = next(((pid, toks) for pid, toks in sorted(self.typed.get(d, {}).items()) if pid in ylds), None)
+            if hit is not None:
+                f["yields"], f["tokens"] = ylds[hit[0]], dict(sorted(hit[1].items()))
 
     # ---- the run --------------------------------------------------------------------------------------------------------
     def candidate_copies(self, path_list: Path, kinds: tuple) -> list:
@@ -1145,6 +1160,7 @@ class Recognizer:
             findings.append(self.finding(rule, fpath, "component", {**info, "part_of": site or "."}))
         conf = self.conformance(conf_paths) if conformance else None
         if conf is not None:
+            self._add_tokens(findings)
             findings.extend(conf.pop("_findings"))
         findings.sort(key=lambda f: (f["path"], f["rule_id"]))
         with open(out / "findings.jsonl", "w", encoding="utf-8", newline="\n") as fh:
