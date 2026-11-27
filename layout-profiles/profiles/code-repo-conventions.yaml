@@ -6,7 +6,7 @@
 # (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). The component rules are
 # FROZEN as in 0.1.0; 0.2.0 adds only the file_roles layer below (path rules, no file content), which can neither change a component nor un-hide a file.
 profile_id: code-repo-conventions
-version: 0.8.0
+version: 0.9.0
 status: proposed
 applies_to: code-repo
 extends: [code-repo]
@@ -72,6 +72,15 @@ rules:
     confidence: medium
     evidence: "a top-level docs, doc or documentation directory holds the repository's documentation ONLY when it holds a site or build configuration file (mkdocs.yml or .yaml, docusaurus.config.js/ts/mjs/cjs, conf.py, antora.yml, book.toml, _config.yml, package.json, pom.xml, build.gradle(.kts) or Makefile) directly or in a direct child folder (docs/source/conf.py), or at least 2 documentation files (.md, .mdx, .rst, .adoc, .asciidoc, .txt, .ipynb) anywhere below it; names only, no file is opened. The threshold of 2 is a judgement: a single notes file is not a documentation component. Otherwise the folder is not a component; its files are still classified and counted. Known limits: a site config deeper than one level below the folder is not seen (the folder is then judged by its documentation files); 2 notes make a component"
     tuned_on: [trellis, datahub, "Phase 1g G2 (minimum content; the file names and extensions are closed lists of documentation tools, not fitted to a repository)"]
+  - id: R-conv-config-lint
+    match: {path_glob: [config, configs, conf], only_files: {child_dirs: ["checkstyle", "codenarc", "pmd", "spotbugs", "findbugs", "detekt", "ktlint", "spotless", "eslint", "stylelint", "prettier", "ruff", "flake8", "pylint", "mypy", "scalastyle", "scalafmt", "rubocop", "clang-format", "editorconfig", "codestyle"], names: ["checkstyle*.xml", "*suppressions*.xml", "codenarc*.xml", "pmd*.xml", "spotbugs*.xml", "findbugs*.xml", "detekt*.yml", "detekt*.yaml", "ruff.toml", ".ruff.toml", ".flake8", ".pylintrc", "pylintrc", "mypy.ini", ".eslintrc*", "eslint.config.*", ".prettierrc*", "prettier.config.*", ".stylelintrc*", "stylelint.config.*", ".rubocop.yml", ".scalafmt.conf", "scalastyle*.xml", ".clang-format", ".clang-tidy", ".editorconfig", ".golangci.yml", ".golangci.yaml", "tslint.json", "biome.json", "HEADER", "HEADER.txt", "*license-header*", "*license.header*", "*.license.*", "required-header.txt"]}}
+    assign: {role: tooling, kind: lint-configuration}
+    grain: dir
+    file_scope: true
+    basis: convention
+    confidence: medium
+    evidence: "a top-level config, configs or conf directory ALL of whose files (anywhere below it, names only) are linter or style configuration is the repository's own tooling, not a component: a file below a direct child folder named for a linter or formatter (checkstyle, codenarc, pmd, spotbugs, findbugs, detekt, ktlint, spotless, eslint, stylelint, prettier, ruff, flake8, pylint, mypy, scalastyle, scalafmt, rubocop, clang-format, editorconfig, codestyle), a linter or formatter configuration file by name (checkstyle*.xml, *suppressions*.xml, .eslintrc*, ruff.toml, .editorconfig, ...), or a license or file header template those tools use (HEADER, *license-header*, *.license.*, required-header.txt); closed lists, case-insensitive. Its files keep their file roles (it is a file-role scope). Otherwise R-conv-config applies. Known limits: a linter outside the lists makes its config/ a component; a config/ mixing linter files with even one other file stays a component"
+    tuned_on: ["Phase 1h H2 (Dan's ruling: a linter/style-only config/ is tooling; the lists are closed lists of linters and formatters, not fitted to a repository)"]
   - id: R-conv-config
     match: {path_glob: [config, configs, conf]}
     assign: {role: component, kind: configuration}
@@ -81,20 +90,21 @@ rules:
     evidence: "a top-level config, configs or conf directory holds the repository's configuration"
     tuned_on: [trellis]
   - id: R-conv-scripts
-    match: {path_glob: [scripts, script]}
-    assign: {role: component, kind: scripts}
-    grain: component
+    match: {path_glob: "*", segment_regex: ['(?i)^scripts?$|^scripts?[-_]']}
+    assign: {role: tooling, kind: maintenance-scripts}
+    grain: dir
+    file_scope: true
     basis: convention
     confidence: medium
-    evidence: "a top-level scripts directory holds the repository's helper scripts"
-    tuned_on: [trellis, superset]
+    evidence: "a top-level directory named scripts or script, or starting scripts-, scripts_, script- or script_ (case-insensitive, whole segment), holds the repository's own maintenance scripts: it is tooling, not a component. Its files keep their file roles (it is a file-role scope, as a component directory is). Known limit: a scripts folder that is really a shipped package (a published CLI under scripts/) becomes tooling; names cannot tell the difference"
+    tuned_on: [trellis, superset, "Phase 1h H1 (Dan's ruling: scripts/ is tooling; the name forms are a closed list, not fitted to a repository)"]
   - id: R-tool-package
-    match: {segment_regex: ['(?i)^(?:tools|tooling|devtools|dev-tools|build-tools|buildsrc|_ext|scripts)$|^(?:\.github|\.circleci|\.buildkite|ci|\.ci|\.teamcity|\.gitlab|\.azure-pipelines|\.azuredevops|\.woodpecker|\.tekton|\.semaphore|\.jenkins)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    match: {segment_regex: ['(?i)^(?:tools|tooling|devtools|dev-tools|build-tools|buildsrc|_ext|scripts|script)$|^scripts?[-_]|^(?:\.github|\.circleci|\.buildkite|ci|\.ci|\.teamcity|\.gitlab|\.azure-pipelines|\.azuredevops|\.woodpecker|\.tekton|\.semaphore|\.jenkins)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
     assign: {role: tooling, kind: tooling-package}
     grain: dir
     basis: convention
     confidence: medium
-    evidence: "a package under a tools, tooling, devtools, dev-tools, build-tools, buildSrc, _ext or scripts folder, or under a CI-configuration folder (the closed list shared with F-ci: .github, .circleci, .buildkite, ci, .ci, .teamcity, .gitlab, .azure-pipelines, .azuredevops, .woodpecker, .tekton, .semaphore, .jenkins), is the repository's own tooling, not a package it ships (a CI tool keeps its own build file there, such as a pom.xml for a Kotlin DSL)"
+    evidence: "a package under a tools, tooling, devtools, dev-tools, build-tools, buildSrc, _ext, scripts or script folder (or one starting scripts-, scripts_, script- or script_, Phase 1h H1), or under a CI-configuration folder (the closed list shared with F-ci: .github, .circleci, .buildkite, ci, .ci, .teamcity, .gitlab, .azure-pipelines, .azuredevops, .woodpecker, .tekton, .semaphore, .jenkins), is the repository's own tooling, not a package it ships (a CI tool keeps its own build file there, such as a pom.xml for a Kotlin DSL)"
     tuned_on: [superset, "dagster (M8, spent)", "Phase 1g G1 (CI-configuration folders; the list is a closed list of CI services, not fitted to a repository)"]
   - id: R-conv-deployment
     match: {path_glob: [docker, deploy, deployment, k8s]}
@@ -121,12 +131,12 @@ rules:
     evidence: "a top-level directory with an __init__.py is an importable Python package even where the manifest sits at the repository root"
     tuned_on: [superset]
   - id: R-conv-node-src
-    match: {path_glob: "*/src", parent_has_file: package.json}
+    match: {path_glob: "*/src", parent_has_file: package.json, parent_not_role: [tooling]}
     assign: {role: component, kind: source-root}
     grain: component
     basis: judgement
     confidence: low
-    evidence: "the src directory directly under a top-level folder that holds a package.json is that application's source root, the substantive part where the package.json is only a build wrapper; a src inside a nested package is part of that package, not a component"
+    evidence: "the src directory directly under a top-level folder that holds a package.json is that application's source root, the substantive part where the package.json is only a build wrapper; a src inside a nested package is part of that package, not a component. Not when the parent is claimed as tooling (Phase 1h H1: a tooling package and its parts are not components)"
     tuned_on: [superset]
 file_roles:
   # The FILE-ROLE layer: every file that no rule above claimed (nothing hidden, no component rule) gets exactly one role from these path rules,
