@@ -187,7 +187,7 @@ def test_no_rule_or_recognizer_source_carries_a_held_out_name_or_a_word_list():
     for pid in ("code-repo-conventions", "code-repo", "generic-relevance", "docs-site", "workspace-repo"):
         for r in load_profile(pid, PROFILES).rules:
             text = " ".join([*(rx.pattern for rx in r.segment_res + r.name_res + r.group_seg_res + r.child_seg_res), *r.segments, *r.names, *[str(g.pattern) for g in r.globs], *r.group_files,
-                             *r.child_seg_parents]).lower()
+                             *r.child_seg_parents, *r.content_files, *r.content_exts]).lower()     # Phase 1g: and the G2 min_content lists
             for b in banned:
                 assert b not in text, (pid, r.id, b)
     for src in RECOGNIZER.glob("*.py"):

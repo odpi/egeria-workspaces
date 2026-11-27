@@ -131,6 +131,12 @@ class Recognizer:
             self.needed_names |= r.has_files | r.parent_has_files | r.has_entries | r.ancestor_entries | r.group_files
             self.needed_dir_entries |= r.has_entries | r.ancestor_entries
         self.hidden_dir_rules = [r for r in self.dir_rules if r.grain == "subtree" and r.relevance == "hidden"]
+        # G2 (min_content): configuration names to note per directory, and per extension set the number of matching files below each directory (names only)
+        self.content_names = frozenset().union(*(r.content_files for r in self.dir_rules if r.content_min))
+        self.content_ext_sets = tuple(sorted({r.content_exts for r in self.dir_rules if r.content_min}))
+        self._content_at: dict = {}                   # directory -> the configuration names (of content_names) directly in it
+        self._content_child: dict = {}                # directory -> the configuration names directly in one of its direct child folders
+        self._content_count: dict = {}                # extension tuple -> {directory: number of files with one of those extensions anywhere below it}
         self.child_first: dict = {}                   # first segment of a has_child_dir path -> the paths that start with it
         self.nosource_names = set()
         for r in self.dir_rules:
@@ -195,6 +201,9 @@ class Recognizer:
         if r.names and name not in r.names:
             return False
         if r.name_res and not any(rx.search(name) for rx in r.name_res):
+            return False
+        if r.content_min and not (r.content_files & (self._content_at.get(d, set()) | self._content_child.get(d, set()))
+                                  or self._content_count.get(r.content_exts, {}).get(d, 0) >= r.content_min):
             return False
         return True
 
@@ -266,6 +275,15 @@ class Recognizer:
                         parts = cp.split("/")
                         if segs[i:i + len(parts)] == parts and i + len(parts) <= len(segs) - 1:
                             self._child_rel.setdefault("/".join(segs[:i]), set()).add(cp)       # `docs/javadoc` directly below `.../build`
+            if self.content_names and name in self.content_names:
+                self._content_at.setdefault(d, set()).add(name)
+            for exts in self.content_ext_sets:
+                if name.endswith(exts):
+                    counts = self._content_count.setdefault(exts, {})
+                    a = d
+                    while a:
+                        counts[a] = counts.get(a, 0) + 1
+                        a = a[:a.rfind("/")] if "/" in a else ""
             if mr is not None and name in mf.ALLOWED_FILES:
                 candidates_m.append((path, size))
                 if name == ".gitmodules":
@@ -276,6 +294,9 @@ class Recognizer:
                     all_dirs.add(d)
                     d = d[:d.rfind("/")] if "/" in d else ""
                     self._dir_count[d] = self._dir_count.get(d, 0) + 1
+        for d, names in self._content_at.items():
+            if d:
+                self._content_child.setdefault(d[:d.rfind("/")] if "/" in d else "", set()).update(names)
         candidates = set(holders) | set(subdirs) | all_dirs if need_all else set(holders) | set(subdirs)
         order = sorted(candidates)
 

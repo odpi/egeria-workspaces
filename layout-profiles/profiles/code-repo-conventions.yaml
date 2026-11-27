@@ -65,13 +65,13 @@ rules:
     evidence: "a manifest project whose path has a benchmark, benchmarks, bench or jmh segment, or one starting or ending with one of them joined by - or _, is a benchmark harness: test support, not a package the repository ships"
     tuned_on: ["kafka (N7, spent)"]
   - id: R-conv-docs
-    match: {path_glob: [docs, doc, documentation]}
+    match: {path_glob: [docs, doc, documentation], min_content: {files: [mkdocs.yml, mkdocs.yaml, docusaurus.config.js, docusaurus.config.ts, docusaurus.config.mjs, docusaurus.config.cjs, conf.py, antora.yml, book.toml, _config.yml, package.json, pom.xml, build.gradle, build.gradle.kts, Makefile], min_files: 2, extensions: [.md, .mdx, .rst, .adoc, .asciidoc, .txt, .ipynb]}}
     assign: {role: component, kind: documentation}
     grain: component
     basis: convention
     confidence: medium
-    evidence: "a top-level docs, doc or documentation directory holds the repository's documentation"
-    tuned_on: [trellis, datahub]
+    evidence: "a top-level docs, doc or documentation directory holds the repository's documentation ONLY when it holds a site or build configuration file (mkdocs.yml or .yaml, docusaurus.config.js/ts/mjs/cjs, conf.py, antora.yml, book.toml, _config.yml, package.json, pom.xml, build.gradle(.kts) or Makefile) directly or in a direct child folder (docs/source/conf.py), or at least 2 documentation files (.md, .mdx, .rst, .adoc, .asciidoc, .txt, .ipynb) anywhere below it; names only, no file is opened. The threshold of 2 is a judgement: a single notes file is not a documentation component. Otherwise the folder is not a component; its files are still classified and counted. Known limits: a site config deeper than one level below the folder is not seen (the folder is then judged by its documentation files); 2 notes make a component"
+    tuned_on: [trellis, datahub, "Phase 1g G2 (minimum content; the file names and extensions are closed lists of documentation tools, not fitted to a repository)"]
   - id: R-conv-config
     match: {path_glob: [config, configs, conf]}
     assign: {role: component, kind: configuration}
