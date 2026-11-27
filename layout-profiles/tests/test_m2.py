@@ -35,13 +35,13 @@ def test_the_profile_loads_with_evidence_on_every_rule():
 @pytest.mark.parametrize("path,rule,kind", [
     ("docs/index.md", "R-conv-docs", "documentation"), ("doc/a.md", "R-conv-docs", "documentation"),
     ("config/app.yaml", "R-conv-config", "configuration"), ("conf/x.ini", "R-conv-config", "configuration"),
-    ("scripts/run.sh", "R-conv-scripts", "scripts"), ("docker/Dockerfile.base", "R-conv-deployment", "deployment"),
+    ("docker/Dockerfile.base", "R-conv-deployment", "deployment"),     # Phase 1h H1: scripts/ is tooling now (tests/test_h.py)
     ("deploy/k.yaml", "R-conv-deployment", "deployment"), ("tests/test_a.py", "R-conv-tests", "test-suite"),
     ("requirements/base.txt", "R-conv-requirements", "dependency-pins"),
 ])
 def test_top_level_convention_directories_are_components(tmp_path, path, rule, kind):
-    c, f, by = run(tmp_path, [path])
     top = path.split("/")[0]
+    c, f, by = run(tmp_path, [path] + ([f"{top}/second.md"] if rule == "R-conv-docs" else []))     # Phase 1g G2: a docs folder needs 2 doc files (or a site config)
     assert by[top]["rule_id"] == rule and by[top]["kind"] == kind and by[top]["role"] == "component"
     assert by[top]["basis"] in ("convention", "judgement") and by[top]["evidence"]
 
@@ -88,7 +88,7 @@ def test_only_manifest_components_have_parts(tmp_path):
 
 
 def test_a_convention_directory_inside_a_hidden_subtree_is_not_a_component(tmp_path):
-    c, f, by = run(tmp_path, ["node_modules/docs/a.md", "build/scripts/x.sh", "docs/a.md"])
+    c, f, by = run(tmp_path, ["node_modules/docs/a.md", "build/scripts/x.sh", "docs/a.md", "docs/b.md"])     # Phase 1g G2: 2 doc files make the top-level docs a component
     assert set(by) == {"build", "docs", "node_modules"}                   # the two hidden subtrees and the one real component
     assert by["docs"]["rule_id"] == "R-conv-docs"
     assert {k for k in by if by[k]["role"] == "component"} == {"docs"}
@@ -200,8 +200,8 @@ def test_structural_rule_schema_errors():
 def test_every_m2_rule_names_the_repositories_that_motivated_it():
     p = load_profile("code-repo-conventions", PROFILES)
     own = [r for r in p.rules if r.origin == "code-repo-conventions"]
-    assert len(own) == 14 and all(r.tuned_on for r in own)
-    assert all(set(r.tuned_on) <= {"trellis", "datahub", "superset"} for r in own if not r.id.startswith(("R-fx-", "R-tool-", "R-conv-test-group")))        # the Phase 1c rules name the spent M8 repositories too
+    assert len(own) == 15 and all(r.tuned_on for r in own)          # Phase 1h H2 adds R-conv-config-lint
+    assert all({t for t in r.tuned_on if not t.startswith(("Phase 1g ", "Phase 1h "))} <= {"trellis", "datahub", "superset"} for r in own if not r.id.startswith(("R-fx-", "R-tool-", "R-conv-test-group")))        # the Phase 1c rules name the spent M8 repositories too
     assert [x["id"] for x in p.structural] == ["S-workspace-siblings"] and p.structural[0]["tuned_on"] == ["superset"]
     one_repo = sorted(r.id for r in own if len(r.tuned_on) == 1)
     assert "R-conv-node-src" in one_repo and "R-conv-docs" not in one_repo             # one-repository rules are visible, hence ablatable

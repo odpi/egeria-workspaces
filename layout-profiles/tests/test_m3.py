@@ -33,7 +33,7 @@ def test_profile_loads_with_evidence_and_tuned_on():
     p = load_profile("docs-site", PROFILES)
     own = [r for r in p.rules if r.origin == "docs-site"]
     assert [r.id for r in own][0] == "R-docs-site-mkdocs"                       # the mkdocs.yml rule is first
-    assert all(r.evidence and r.tuned_on and set(r.tuned_on) <= {"mkdocs-sample", "trellis", "note 568fc678 (no repository looked at)"} for r in own)
+    assert all(r.evidence and r.tuned_on and {t for t in r.tuned_on if not t.startswith("Phase 1g ")} <= {"mkdocs-sample", "trellis", "note 568fc678 (no repository looked at)"} for r in own)
     assert [pid for pid, _ in p.composed_of] == ["docs-site", "generic-relevance"]
 
 
@@ -105,7 +105,7 @@ def test_a_directory_is_claimed_once_in_either_composition_order(tmp_path, order
 @pytest.mark.parametrize("order", [["docs-site", "code-repo-conventions"], ["code-repo-conventions", "docs-site"]])
 def test_a_plain_docs_folder_is_claimed_once_in_either_order(tmp_path, order):
     compose(tmp_path, "both", order)
-    c, f, by = run(tmp_path, ["docs/a.md", "tests/t.py"], profile="both", profiles_dir=tmp_path)
+    c, f, by = run(tmp_path, ["docs/a.md", "docs/b.md", "tests/t.py"], profile="both", profiles_dir=tmp_path)     # Phase 1g G2: 2 doc files
     assert len([k for k in by if k[0] == "docs"]) == 1
 
 
