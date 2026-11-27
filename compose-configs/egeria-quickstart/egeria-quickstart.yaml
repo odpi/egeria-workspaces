@@ -420,6 +420,7 @@ services:
       - ../../runtime-volumes/quickstart-apache-web/ErrorLogs:/usr/local/apache2/logs
       - ../../templates:/usr/local/apache2/htdocs/Dr-Egeria-Samples/templates
       - ../../portal-docs:/usr/local/apache2/htdocs/docs
+      - ../../portal-vendor:/usr/local/apache2/vendor:ro   # PO-87: /vendor/ (browser libraries, see httpd.conf)
       # SSL cert volume — disabled by default. See demo-mode.md § SSL / HTTPS.
       # - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
       # - /path/to/your/certs:/etc/ssl/egeria:ro

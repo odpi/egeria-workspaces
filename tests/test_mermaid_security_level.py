@@ -19,8 +19,8 @@ obsidian, so its HTML is served too. Its generated sample pages (egeria-api-samp
 rely on mermaid's default level, which is 'strict', and their graph text is static. The guard checks that none of
 its HTML sets a level other than 'strict'.
 
-Every served page that loads mermaid from the CDN loads major version 11 (`mermaid@11`), never a floating
-`npm/mermaid/dist` and never another major version.
+Every served page that loads mermaid, from the CDN or from the Portal's /vendor/ (PO-87), loads major version 11
+(`mermaid@11`), never a floating `npm/mermaid/dist` and never another major version.
 
 Out of scope: the notebooks under workbooks/ and coco-workbooks/. A user runs their code cells in Jupyter.
 """
@@ -63,7 +63,7 @@ SERVED_DIRS = (
 SERVED_FILES = (Q + "markdown-header.html",)
 SKIP_PARTS = {"node_modules", "tests", ".venv", "__pycache__"}
 SERVED_STATIC_DIRS = ("coco-workbooks",)  # default level allowed; an explicit level must be 'strict'
-MERMAID_SRC = re.compile(r"cdn\.jsdelivr\.net/npm/mermaid(@[^/\"']*)?/")
+MERMAID_SRC = re.compile(r"(?:cdn\.jsdelivr\.net/npm|/vendor)/mermaid(@[^/\"']*)?/")
 
 INIT = re.compile(r"mermaid\s*\.\s*initialize\s*\(")
 LEVEL = re.compile(r"securityLevel\s*:\s*['\"]([A-Za-z]+)['\"]")
@@ -153,7 +153,9 @@ def test_served_mermaid_loads_are_major_11():
 
 # The Apache markdown viewer: it shows only files from this site, and sanitises marked's HTML.
 VIEWER = Q + "markdown-header.html"
-DOMPURIFY_SRC = re.compile(r'<script src="https://cdn\.jsdelivr\.net/npm/dompurify@(\d+\.\d+\.\d+)/dist/purify\.min\.js"></script>')
+# PO-87: DOMPurify is served from the Portal (/vendor/, portal-vendor/); MANIFEST.tsv pins the exact version.
+DOMPURIFY_SRC = re.compile(r'<script src="/vendor/(dompurify@\d+/purify\.min\.js)"></script>')
+MANIFEST = ROOT / "portal-vendor" / "MANIFEST.tsv"
 
 
 def _viewer() -> str:
@@ -163,8 +165,11 @@ def _viewer() -> str:
 def test_viewer_loads_pinned_dompurify_before_its_script():
     text = _viewer()
     m = DOMPURIFY_SRC.search(text)
-    assert m, "markdown-header.html must load DOMPurify from jsdelivr at an exact version"
+    assert m, "markdown-header.html must load DOMPurify from /vendor/"
     assert m.start() < text.index("<script>\n"), "DOMPurify must load before the page's own script"
+    rows = {r.split("\t")[0]: r.split("\t") for r in MANIFEST.read_text(encoding="utf-8").splitlines()[1:] if r}
+    assert m.group(1) in rows, f"{m.group(1)} is not in portal-vendor/MANIFEST.tsv"
+    assert rows[m.group(1)][1] == "dompurify" and re.fullmatch(r"\d+\.\d+\.\d+", rows[m.group(1)][2]), "MANIFEST must pin DOMPurify's exact version"
 
 
 def test_viewer_sanitises_marked_output():
