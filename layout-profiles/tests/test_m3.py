@@ -118,9 +118,13 @@ def test_a_shared_base_is_loaded_once_and_a_real_clash_is_still_an_error(tmp_pat
     base = yaml.safe_load((PROFILES / "worktree-copies.yaml").read_text())
     clash = {**base, "profile_id": "clash"}
     (tmp_path / "clash.yaml").write_text(yaml.safe_dump(clash))
-    (tmp_path / "other.yaml").write_text(yaml.safe_dump({**base, "profile_id": "other", "extends": ["clash"]}))      # same rule id, two profiles
-    with pytest.raises(ProfileError):
-        load_profile("other", tmp_path)
+    (tmp_path / "other.yaml").write_text(yaml.safe_dump({**base, "profile_id": "other", "extends": ["clash"]}))
+    o = load_profile("other", tmp_path)                                        # Phase 1j J1: a child's rule with an inherited id REPLACES it in place
+    assert set(o.replaced) == {r["id"] for r in base["rules"]} and all(r.origin == "other" for r in o.rules if r.id in o.replaced)
+    (tmp_path / "clash2.yaml").write_text(yaml.safe_dump({**base, "profile_id": "clash2"}))
+    (tmp_path / "both2.yaml").write_text(yaml.safe_dump({**base, "profile_id": "both2", "extends": ["clash", "clash2"], "rules": []}))
+    with pytest.raises(ProfileError):                                          # the same rule id from two DIFFERENT extended profiles: still an error
+        load_profile("both2", tmp_path)
 
 
 def test_sections_are_not_components_here(tmp_path):

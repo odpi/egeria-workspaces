@@ -35,7 +35,7 @@ COMPONENT_SCOPES = ("within", "root")                  # file rules only: under 
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
 TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar",
-            "lists")
+            "lists", "disable")
 LIST_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")                     # J0: a named list (`lists:`), referred to as `$name` (a whole value or list element) or `{$name}` in a regex
 LIST_REF = re.compile(r"^\$([a-z0-9][a-z0-9-]*)$")
 LIST_INTERP = re.compile(r"\{\$([a-z0-9][a-z0-9-]*)\}")
@@ -200,6 +200,9 @@ class Profile:
     name_grammar: tuple = ()
     composed_of: tuple = ()                      # ((profile_id, version), ...) in the order their rules are checked
     lists: dict = field(default_factory=dict)    # J0: the named lists this profile sees (its own and those of the profiles it extends): name -> tuple of strings
+    disabled: tuple = ()                         # J1: inherited rule ids this profile (and the profiles it extends) removed with `disable:`
+    replaced: tuple = ()                         # J1: inherited rule ids a rule of the same id REPLACED at the inherited position
+    effective_order: tuple = ()                  # J1: the ids of the effective rules, then of the file-role rules, in the order they are checked
     structural: tuple = ()                       # structural rules (dicts), the child's first
 
     @property
@@ -685,54 +688,95 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         own_fr.append(r)
     all_roles = list(roles)
     merged_rel = dict(rel_map)
-    rules = list(own_rules)
     composed = [(pid, version)]
     path_grammar = _grammar(f"{source} path_grammar", doc.get("path_grammar"), ("id", "pattern", "yields"))
     name_grammar = _grammar(f"{source} name_grammar", doc.get("name_grammar"), ("id", "pattern", "yields"))
     structural_own = _structural(source, doc.get("structural_rules"))
     structural = list(structural_own)
+    inh_rules, inh_fr = [], []
+    inh_disabled, inh_replaced = [], []
     for base in bases:
         for role in base.roles:
             if role not in all_roles:
                 all_roles.append(role)
         for role, level in base.relevance.items():
             merged_rel.setdefault(role, level)          # the child's mapping wins
-        rules.extend(base.rules)
-        own_fr.extend(base.file_roles)
+        inh_rules.extend(base.rules)
+        inh_fr.extend(base.file_roles)
         mreading = _merge_reading(mreading, base.manifest_reading)
         structural.extend(base.structural)
         composed.extend(base.composed_of)
-    own_ids = [r.id for r in own_rules] + [r.id for r in own_fr if r.origin == pid]
+        inh_disabled.extend(base.disabled)
+        inh_replaced.extend(base.replaced)
+    own_ids = [r.id for r in own_rules] + [r.id for r in own_fr]
     if len(set(own_ids)) != len(own_ids):
         raise ProfileError(f"{source}: rule id {next(i for i in own_ids if own_ids.count(i) > 1)!r} is used twice in this profile; ids must be unique")
     own_sids = [x["id"] for x in structural_own]
     if len(set(own_sids)) != len(own_sids) or set(own_sids) & set(own_ids):
         raise ProfileError(f"{source}: structural rule ids must be unique and differ from rule ids")
     # A profile reached twice (a diamond: two extended profiles share a base) contributes its rules ONCE, at the first place it is met.
-    # The same rule id coming from two DIFFERENT profiles is still an error.
-    deduped, seen = [], {}
-    for rule in rules:
-        if rule.id in seen:
-            if seen[rule.id] == rule.origin:
+    # The same rule id coming from two DIFFERENT profiles (or from both layers) is still an error.
+    seen: dict = {}
+
+    def dedupe(seq, layer):
+        out = []
+        for rule in seq:
+            if rule.id in seen:
+                if seen[rule.id] == (rule.origin, layer):
+                    continue
+                raise ProfileError(f"{source}: rule id {rule.id!r} is used twice (in {seen[rule.id][0]!r} and {rule.origin!r}); ids must be unique")
+            seen[rule.id] = (rule.origin, layer)
+            out.append(rule)
+        return out
+    inh_rules, inh_fr = dedupe(inh_rules, "rules"), dedupe(inh_fr, "file_roles")
+    inh_rule_ids, inh_fr_ids = {r.id for r in inh_rules}, {r.id for r in inh_fr}
+    # J1: `disable:` removes inherited rules; an own rule with an inherited id REPLACES that rule at the inherited position (first-match order kept)
+    disable = doc.get("disable")
+    if disable is not None and (not isinstance(disable, list) or not disable or not all(isinstance(x, str) and x for x in disable) or len(set(disable)) != len(disable)):
+        raise ProfileError(f"{source}: disable must be a non-empty list of distinct rule ids")
+    disable = list(disable or [])
+    for rid in disable:
+        if rid not in inh_rule_ids and rid not in inh_fr_ids:
+            raise ProfileError(f"{source}: disable names {rid!r}, which is not a rule of an extended profile")
+        if rid in own_ids:
+            raise ProfileError(f"{source}: rule {rid!r} is both disabled and redefined; replace it or disable it")
+    for r in own_rules:
+        if r.id in inh_fr_ids:
+            raise ProfileError(f"{source}: rule {r.id!r} replaces a file-role rule; a replacement must be in the same layer (file_roles)")
+    for r in own_fr:
+        if r.id in inh_rule_ids:
+            raise ProfileError(f"{source}: file-role rule {r.id!r} replaces a rule; a replacement must be in the same layer (rules)")
+    dis = set(disable)
+    replaced: list = []
+
+    def overlay(inherited, own):
+        by_id = {r.id: r for r in own}
+        out = []
+        for r in inherited:
+            if r.id in dis:
                 continue
-            raise ProfileError(f"{source}: rule id {rule.id!r} is used twice (in {seen[rule.id]!r} and {rule.origin!r}); ids must be unique")
-        seen[rule.id] = rule.origin
-        deduped.append(rule)
-    rules = deduped
+            if r.id in by_id:
+                out.append(by_id[r.id])
+                replaced.append(r.id)
+            else:
+                out.append(r)
+        return out
+    rules = [r for r in own_rules if r.id not in inh_rule_ids] + overlay(inh_rules, own_rules)
+    fr_out = [r for r in own_fr if r.id not in inh_fr_ids] + overlay(inh_fr, own_fr)
+    for r in own_rules + own_fr:
+        seen.setdefault(r.id, (pid, "own"))
     if mreading is not None:
         ids_now = {r.id for r in rules}
+        cleared = {}
         for key in ("docs_content_rule", "site_output_rule", "fallback_site_rule", "submodule_rule"):
             ref = getattr(mreading, key)
-            if ref is not None and ref not in ids_now:
+            if ref is not None and ref in dis:
+                cleared[key] = None                      # J1: a disabled rule's manifest_reading feature is off (documented)
+            elif ref is not None and ref not in ids_now:
                 raise ProfileError(f"{source}: manifest_reading.{key} names {ref!r}, which is not a rule of this profile")
-    fr_out = []
-    for rule in own_fr:                                  # same dedupe for the file-role layer; ids are unique across both lists
-        if rule.id in seen:
-            if seen[rule.id] == rule.origin and any(x.id == rule.id for x in fr_out):
-                continue
-            raise ProfileError(f"{source}: rule id {rule.id!r} is used twice (in {seen[rule.id]!r} and {rule.origin!r}); ids must be unique")
-        seen[rule.id] = rule.origin
-        fr_out.append(rule)
+        if cleared:
+            from dataclasses import replace as _dc_replace
+            mreading = _dc_replace(mreading, **cleared)
     uniq, seen_s = [], set()
     for x in structural:
         if x["id"] not in seen_s:
@@ -744,7 +788,9 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
     composed = list(dict.fromkeys(composed))
     return Profile(profile_id=pid, version=version, status=doc["status"], applies_to=doc["applies_to"], roles=tuple(all_roles),
                    relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), manifest_reading=mreading, extends=tuple(extends), path_grammar=path_grammar, name_grammar=name_grammar,
-                   composed_of=tuple(composed), structural=tuple(structural), lists=lists)
+                   composed_of=tuple(composed), structural=tuple(structural), lists=lists,
+                   disabled=tuple(dict.fromkeys(inh_disabled + disable)), replaced=tuple(dict.fromkeys(inh_replaced + replaced)),
+                   effective_order=tuple(r.id for r in rules) + tuple(r.id for r in fr_out))
 
 
 def load_profile(profile_id_or_path: str, profiles_dir: Path | str | None = None, _stack: tuple = ()) -> Profile:
