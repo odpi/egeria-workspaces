@@ -640,6 +640,63 @@ A folder that no `allowed_only` item covers is not checked.
 **`classes.json` `conformance`**: checked items (entries judged plus required paths expected), conformant items, findings by kind and status, the
 score (conformant / checked) and the not-checked files with their roots and reasons (`not-checked`, `below-finding`, `no-closed-set`).
 
+## Phase 2, notebook 05, B2: the `bids-dataset` profile 0.1.0 and the `dataset_description.json` content checks
+
+`profiles/bids-dataset.yaml` (extends `generic-relevance`, so `.git` and the like stay hidden and are not judged) declares a SUBSET of BIDS v1.11.2
+(SOURCES.md): the datatypes `anat`, `func`, `dwi` and `fmap`; the entities `sub`, `ses`, `task`, `acq`, `dir`, `run` and `echo` in the specification's
+order; the suffixes per datatype in the profile; NIfTI data as `.nii.gz` or `.nii`; the top-level files; and three content checks. `sub-emptyroom`, the
+specification's subject for MEG empty-room recordings, is outside the subset and not checked. Its rule ids are the ones `samples/bids_gen.py` puts
+in `truth.jsonl`: `PG-subject`, `PG-session`, `PG-datatype(-ses)`, `NG-bids`, `RQ-*`, `AO-root`, `AO-subject`, `AO-session`, `AO-datatype` and `CT-*`.
+`tuned_on: "generated (bids_gen seeds 1-3)"`; no rule names a real dataset. Two facts were corrected after the Architect's read-back, from the
+specification's own text (`.nii` is BIDS; `sub-emptyroom` is MEG's), and carry `tuned_on: "BIDS spec; noticed on ds000117 (reported-only sample)"`.
+The scanned root is the dataset root.
+
+**Study consistency apart from the standard.** A `required` item may carry `category: study-consistency` (default `standard`). `RQ-session`,
+`RQ-datatype` and `RQ-datatype-ses` (every subject has every session, and every datatype folder, seen in the dataset) are study-consistency
+checks: a regular study's protocol, which BIDS itself does not require. When a profile has such items, the `conformance` block of `classes.json`
+has `by_category` (checked items, findings and score per category; entries and content fields count as `standard`) and each conformance finding
+carries its `category`, so a report can say "BIDS 69%, study consistency 94%".
+
+**`kind` takes its vocabulary from the grain.** For grain `conformance` it is one of `structure`, `naming` or `content-type` (with a `status`). For
+component and role findings it stays the component or role kind, as before. The loader refuses a rule, manifest rule or structural rule whose
+kind is `structure`, `naming` or `content-type`, so the two vocabularies cannot be confused.
+
+**Content checks** (top-level key `content_checks`; NOTE-PHASE2 §2 row and §10). Only `dataset_description.json`, only its fields `BIDSVersion`,
+`Name` and `License`, only at the scanned root, only under `bids-dataset` (the loader refuses any other file, field or profile), and only when a
+blob source is given (`--blobs-dir DIR` or `--blobs-git REPO REV`); without one, `classes.json` says `content_reading.enabled: false`. One item per
+field (`{id, file, field, check: {regex: R} | {non_empty: true}}`) and one `unreadable: true` item. The file is read under the 256 KiB cap by the
+safe JSON parser (time limit, depth limit). Statuses: `missing-field` (absent or not a string), `invalid-value` (fails the check, or is longer than
+256 characters; the value is stored only up to 256 characters), `unreadable` (parse error, not a JSON object, over the cap; no field is checked
+then). The checks: `BIDSVersion` matches `\d+\.\d+\.\d+`, `Name` and `License` are not empty. Findings carry `basis: manifest-content`,
+`evidence_file`, `evidence_field` and `evidence_blob` (the git blob sha, or the file's sha256 for a non-git tree). No other field is copied
+anywhere (tested). A missing `dataset_description.json` is a `structure`/`missing` finding only. Each checked field counts as one checked item;
+an unreadable file counts as one. `content-reads.txt` lists the files opened.
+
+Results: clean trees (seeds 1-3 and more, with and without sessions) have 0 findings and score 1.0. Each of the 17 classes injected alone, and
+all of them together, is found exactly: the conformance findings equal `truth.jsonl` by path, kind, status and rule, with nothing else.
+
+**ds000117** (bids-examples @ 5e00d47b, names and sizes only plus its `dataset_description.json`; reported, NOT scored). On `samples/ds000117/paths.tsv`
+with `--blobs-dir samples/ds000117`: 2,448 files; 1,776 not checked (derivatives, stimuli, sub-emptyroom, meg, beh, top-level sidecars, scans files);
+882 checked items, 245 findings, score 0.722 (standard 0.695 on 786 items, study consistency 0.948 on 96). The content checks pass (BIDSVersion 1.8.0,
+License CC0). 224 `suffix` findings are the FLASH scans (a suffix outside the subset; BIDS marks it deprecated) and 16 `unexpected` are MEG
+`channels.tsv` files at session level (inheritance and MEG are outside the subset): both accepted as known limits. The 5 `missing` are `dwi` folders
+absent for some subjects: honest study-consistency findings. Before the read-back fixes the figures were 423 findings, score 0.589 (47 `.nii` field
+maps, and 130 + 1 + its file from `sub-emptyroom`). The Architect's offline bids-validator run compares them after B4.
+
+**Known limits** (what the subset leaves out or judges more strictly than BIDS):
+- `derivatives/`, `sourcedata/`, `code/`, `stimuli/` and `phenotype/` are not checked (only counted).
+- Inheritance is not modelled: top-level, subject-level and session-level sidecars and tables (`*.json`, `*.tsv`) are not checked.
+- Sidecar content, `participants.tsv` and every data file are never read; only `BIDSVersion`, `Name` and `License` of the root `dataset_description.json` are read.
+- Other datatypes (meg, eeg, ieeg, beh, pet, perf, micr, motion, mrs, nirs) are not checked; physio and stim recordings are not checked.
+- Only the entities sub, ses, task, acq, dir, run and echo; any other BIDS entity (ce, rec, mod, part, ...) is reported as `unknown-entity`.
+- Only the suffixes listed per datatype; others, such as FLASH or T2starw, are reported as `suffix`.
+- Any listed entity may appear with any suffix; per-suffix entity rules beyond `task` for bold, sbref and events are not checked.
+- README, participants.tsv and CHANGES are required here; BIDS 1.11.2 recommends the first two and makes CHANGES optional. README.md, README.rst and README.txt are allowed but do not satisfy the README requirement.
+- RQ-session, RQ-datatype and RQ-datatype-ses expect a regular study (every subject has every session and datatype folder seen); they are study-consistency checks, scored apart, and a study whose subjects legitimately differ will have findings there.
+- Session-level files of datatypes outside the subset (for example MEG `channels.tsv` directly in `ses-meg/`) are reported `unexpected`.
+- The License value is not checked against a list in v0.
+- `.bidsignore` is not read.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.

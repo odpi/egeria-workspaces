@@ -923,18 +923,76 @@ class Recognizer:
                "profile_version": self.p.version}
         if f.get("reason"):
             out["reason"] = f["reason"]
+        for k in ("evidence_file", "evidence_field", "evidence_blob", "value", "note"):
+            if f.get(k) is not None:
+                out[k] = f[k]
         return out
+
+    def content_conformance(self, present: set):
+        """B2 (NOTE-PHASE2 §2 row and §10): the fields of the closed list of content files, read ONLY at the scanned root (the dataset root), only when the
+        file is in the list and not hidden, and only with a blob source; under the manifest per-file cap, by the safe JSON parser. Returns
+        (findings, fields checked, read log, enabled). A file that is absent is a structure finding (required), never a content one."""
+        checks = self.p.content_checks
+        if not checks or self.blob_source is None:
+            return [], 0, [], False
+        found, checked, log = [], 0, []
+        for f in sorted({c.file for c in checks}):
+            if f not in present:
+                continue
+            mine = [c for c in checks if c.file == f]
+            unread = next(c for c in mine if c.field is None)
+            log.append(f)
+            data, blob, note = self.blob_source.read(f, mf.DEFAULT_MAX_FILE_BYTES)
+            if data is not None and isinstance(self.blob_source, mf.FileSource):
+                blob = hashlib.sha256(data).hexdigest()          # a non-git tree: the file's sha256 (NOTE-PHASE2 §10)
+            ev = {"evidence_file": f, "evidence_blob": blob}
+            doc, why = None, None
+            if data is None:
+                why = "skipped: size" if note == "size" else "not readable from the source"
+            else:
+                try:
+                    doc = mf.parse_json(data)
+                except mf.ManifestParseError as exc:
+                    why = f"parse_error: {exc}"
+                if doc is not None and not isinstance(doc, dict):
+                    doc, why = None, "parse_error: not a JSON object"
+            if doc is None:
+                checked += 1
+                found.append({"path": f, "kind": "content-type", "status": "unreadable", "rule": unread, "note": why, **ev})
+                continue
+            for c in (c for c in mine if c.field is not None):
+                checked += 1
+                status, value = c.judge(doc.get(c.field))
+                if status:
+                    found.append({"path": f, "kind": "content-type", "status": status, "rule": c, "evidence_field": c.field, "value": value,
+                                  **ev})
+        return found, checked, log, True
 
     def conformance(self, paths: list) -> dict:
         """Judge the tree (the files the profile does not hide) against the profile's grammars, required paths and closed sets (recognizer/grammar.py)."""
         res = gm.evaluate(paths, self.p.path_grammar, self.p.name_grammar, self.p.required, self.p.allowed_only)
-        found = [self.conformance_finding(f) for f in res.findings]
+        cfound, cchecked, clog, cenabled = self.content_conformance(set(paths))
+        self.content_reads = clog
+        found = [self.conformance_finding(f) for f in res.findings + cfound]
         by: dict = {}
         for f in found:
             by.setdefault(f["kind"], {}).setdefault(f["status"], 0)
             by[f["kind"]][f["status"]] += 1
-        checked = res.checked_entries + res.checked_required
-        return {"_findings": found, "checked": {"entries": res.checked_entries, "required": res.checked_required, "total": checked},
+        checked = res.checked_entries + res.checked_required + cchecked
+        extra = {"content_reading": {"enabled": cenabled, "files_read": clog}} if self.p.content_checks else {}
+        cats = {r.category for r in self.p.required}
+        if cats - {"standard"}:                                   # B2: the standard's items apart from a study's own consistency checks
+            rule_cat = {r.id: r.category for r in self.p.required}
+            per: dict = {}
+            std_checked = checked - sum(v for k, v in res.checked_by_category.items() if k != "standard")
+            for cat in sorted(cats | {"standard"}):
+                n = std_checked if cat == "standard" else res.checked_by_category.get(cat, 0)
+                bad = sum(1 for f in found if rule_cat.get(f["rule_id"], "standard") == cat)
+                per[cat] = {"checked": n, "findings": bad, "score": round((n - bad) / n, 6) if n else 1.0}
+            extra["by_category"] = per
+            for f in found:
+                f["category"] = rule_cat.get(f["rule_id"], "standard")
+        return {"_findings": found, **extra, "checked": {"entries": res.checked_entries, "required": res.checked_required, "fields": cchecked, "total": checked},
                 "conformant": checked - len(found), "findings": {k: dict(sorted(v.items())) for k, v in sorted(by.items())}, "findings_total": len(found),
                 "score": round((checked - len(found)) / checked, 6) if checked else 1.0,
                 "not_checked": {"files": res.not_checked_files, "roots": sorted(res.not_checked, key=lambda x: (x["path"], x["reason"]))}}
@@ -1023,7 +1081,7 @@ class Recognizer:
             cell[0] += 1
             cell[1] += size
 
-        conformance = bool(self.p.allowed_only or self.p.required)    # Phase 2 (B1): only a profile that declares a closed set or required paths
+        conformance = bool(self.p.allowed_only or self.p.required or self.p.content_checks)   # Phase 2: only a profile that declares conformance
         conf_paths: list = []                                          # the files conformance judges: every file the profile does not hide
         fj = open(out / "findings-files.jsonl", "w", encoding="utf-8", newline="\n") if per_file else None
         try:
@@ -1097,6 +1155,8 @@ class Recognizer:
             groups = self.candidate_copies(path_list, tuple(copies_of))
             (out / "candidate-copies.json").write_text(json.dumps({"kinds": sorted(copies_of), "groups": groups}, indent=2, sort_keys=True) + "\n",
                                                        encoding="utf-8")
+        if conf is not None and self.p.content_checks:              # the content files conformance opened (at most the closed list, at the root)
+            (out / "content-reads.txt").write_text("".join(p + "\n" for p in self.content_reads), encoding="utf-8")
         if self.reading is not None:                                # names only: the paths opened, in order (evidence for the read log)
             (out / "manifest-reads.txt").write_text("".join(p + "\n" for p in self.reading.log), encoding="utf-8")
         top_components.sort()

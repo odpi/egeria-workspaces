@@ -33,7 +33,7 @@ COMPONENT_SCOPES = ("within", "root")                  # file rules only: under 
 FILE_ONLY_KEYS = ("extension",)                        # meaningful only for a file name
 ASSIGN_KEYS = ("role", "relevance", "kind")
 TOP_KEYS = ("profile_id", "version", "status", "applies_to", "extends", "roles", "relevance", "rules", "file_roles", "manifest_reading", "structural_rules", "path_grammar", "name_grammar",
-            "required", "allowed_only")       # the last four: conformance (recognizer/grammar.py, Phase 2 notebook 05)
+            "required", "allowed_only", "content_checks")       # the last five: conformance (recognizer/grammar.py, Phase 2 notebook 05)
 RULE_KEYS = ("id", "match", "assign", "grain", "basis", "confidence", "evidence")
 RULE_OPTIONAL_KEYS = ("tuned_on",)       # which repositories motivated the rule, so a reviewer can ablate it (a one-repository rule is suspect)
 MANIFEST_READING_KEYS = ("readers", "max_file_bytes", "max_blobs", "max_total_bytes", "member_rule", "aggregator_rule", "section_rule", "fallback_section_rule",
@@ -48,6 +48,14 @@ SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 COMPOSITE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]*(\+[a-z0-9][a-z0-9._-]*)+$")      # `a+b`: a composition made at run time, never a file name
 RULE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+CONFORMANCE_KINDS = ("structure", "naming", "content-type")   # the `kind` of a CONFORMANCE finding (grain conformance); never a component or role kind
+
+
+def _not_conformance_kind(where: str, kind) -> None:
+    if kind in CONFORMANCE_KINDS:
+        raise ProfileError(f"{where}: kind {kind!r} is reserved for conformance findings (structure, naming, content-type); a component or role kind needs another name")
 
 
 class ProfileError(ValueError):
@@ -164,6 +172,7 @@ class Profile:
     name_grammar: tuple = ()                     # grammar.NameGrammar
     required: tuple = ()                         # grammar.Required
     allowed_only: tuple = ()                     # grammar.AllowedOnly
+    content_checks: tuple = ()                   # grammar.ContentCheck (only dataset_description.json, only under bids-dataset)
     composed_of: tuple = ()                      # ((profile_id, version), ...) in the order their rules are checked
     structural: tuple = ()                       # structural rules (dicts), the child's first
 
@@ -215,6 +224,7 @@ def _compile_rule(where: str, raw: dict, roles: tuple, rel_map: dict, origin: st
     evidence = raw["evidence"]
     if not isinstance(evidence, str) or not evidence.strip():
         raise ProfileError(f"{where}: evidence must be a non-empty string")
+    _not_conformance_kind(where, assign.get("kind"))
 
     dir_keys = [k for k in DIR_ONLY_KEYS if k in match]
     file_keys = [k for k in FILE_ONLY_KEYS if k in match]
@@ -346,6 +356,7 @@ def _manifest_reading(where: str, doc: Any, roles: tuple, rel_map: dict, origin:
         rel = rel_map.get(raw["role"])
         if rel is None:
             raise ProfileError(f"{w} {which}: role {raw['role']!r} has no relevance")
+        _not_conformance_kind(f"{w} {which}", raw["kind"])
         for key, allowed in (("basis", BASES), ("confidence", CONFIDENCES)):
             if raw[key] not in allowed:
                 raise ProfileError(f"{w} {which}: {key} {raw[key]!r} is not one of {list(allowed)}")
@@ -390,7 +401,8 @@ def _grammar(source: str, key: str, items: Any, origin: str) -> tuple:
     gm = _gm()
     if not isinstance(items, list):
         raise ProfileError(f"{source} {key}: expected a list")
-    make = {"path_grammar": gm.compile_path_grammar, "name_grammar": gm.compile_name_grammar, "required": gm.compile_required}.get(key)
+    make = {"path_grammar": gm.compile_path_grammar, "name_grammar": gm.compile_name_grammar, "required": gm.compile_required,
+            "content_checks": gm.compile_content_check}.get(key)
     out = []
     for n, item in enumerate(items):
         try:
@@ -403,7 +415,7 @@ def _grammar(source: str, key: str, items: Any, origin: str) -> tuple:
     return tuple(out)
 
 
-GRAMMAR_LISTS = ("path_grammar", "name_grammar", "required", "allowed_only")
+GRAMMAR_LISTS = ("path_grammar", "name_grammar", "required", "allowed_only", "content_checks")
 
 
 def _gm():
@@ -433,6 +445,7 @@ def _structural(where: str, items: Any) -> tuple:
                 raise ProfileError(f"{w}: op {item['op']!r} needs a kind")
         elif "kind" in item:
             raise ProfileError(f"{w}: op 'sibling-manifests-top-level' takes no kind")
+        _not_conformance_kind(w, item.get("kind"))
         if item["op"] == "mostly-extension-folder":
             exts = item.get("extensions")
             share = item.get("share")
@@ -607,12 +620,13 @@ def parse_profile(doc: Any, source: str = "<profile>", profiles_dir: Path | None
         gm = _gm()
         try:
             gm.check_references(source, gram["path_grammar"], gram["name_grammar"], gram["required"], gram["allowed_only"])
+            gm.check_content(source, gram["content_checks"])
         except gm.GrammarError as exc:
             raise ProfileError(str(exc)) from exc
     composed = list(dict.fromkeys(composed))
     return Profile(profile_id=pid, version=version, status=doc["status"], applies_to=doc["applies_to"], roles=tuple(all_roles),
                    relevance=merged_rel, rules=rules, file_roles=tuple(fr_out), manifest_reading=mreading, extends=tuple(extends), path_grammar=gram["path_grammar"], name_grammar=gram["name_grammar"],
-                   required=gram["required"], allowed_only=gram["allowed_only"],
+                   required=gram["required"], allowed_only=gram["allowed_only"], content_checks=gram["content_checks"],
                    composed_of=tuple(composed), structural=tuple(structural))
 
 

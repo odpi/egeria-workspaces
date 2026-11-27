@@ -39,7 +39,8 @@ NG_OPTIONAL = ("tuned_on",)
 ENTITY_KEYS = ("key",)
 ENTITY_OPTIONAL = ("label", "token", "required_for")
 RQ_KEYS = ("id",) + CLAIM_KEYS
-RQ_OPTIONAL = ("path", "of", "for_each", "tuned_on")
+RQ_OPTIONAL = ("path", "of", "for_each", "category", "tuned_on")
+CATEGORIES = ("standard", "study-consistency")   # a required path the standard asks for, or one a study's own protocol makes regular (B2)
 AO_KEYS = ("id", "under") + CLAIM_KEYS
 AO_OPTIONAL = ("dirs", "files", "name_grammar", "not_checked", "tuned_on")
 _TOKEN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -192,6 +193,7 @@ class Required(Claim):
     path: str | None = None
     of: str | None = None
     for_each: tuple = ()
+    category: str = "standard"
 
 
 @dataclass(frozen=True)
@@ -340,6 +342,9 @@ def compile_required(where, raw, origin, bases, confidences, rule_id_re) -> Requ
     _keys(where, raw, RQ_KEYS, RQ_OPTIONAL)
     _id(where, raw, rule_id_re)
     where = f"{where} {raw['id']!r}"
+    cat = raw.get("category", "standard")
+    if cat not in CATEGORIES:
+        raise GrammarError(f"{where}: category {cat!r} is not one of {list(CATEGORIES)}")
     if ("path" in raw) == ("of" in raw):
         raise GrammarError(f"{where}: exactly one of path (a literal path) or of (a path_grammar id, with for_each)")
     if "path" in raw:
@@ -348,13 +353,13 @@ def compile_required(where, raw, origin, bases, confidences, rule_id_re) -> Requ
             raise GrammarError(f"{where}: for_each belongs to of")
         if not isinstance(p, str) or not p or p.startswith("/") or p.endswith("/") or any(s in ("", ".", "..") for s in p.split("/")) or "{" in p:
             raise GrammarError(f"{where}: path must be a literal relative path")
-        return Required(**_claim(where, raw, origin, bases, confidences), path=p)
+        return Required(**_claim(where, raw, origin, bases, confidences), path=p, category=cat)
     if not isinstance(raw["of"], str) or not raw["of"]:
         raise GrammarError(f"{where}: of must name a path_grammar id")
     fe = tuple(_str_list(f"{where} for_each", raw.get("for_each"), "token names")) if "for_each" in raw else ()
     if not fe:
         raise GrammarError(f"{where}: of needs for_each (the tokens whose every value seen must have the path)")
-    return Required(**_claim(where, raw, origin, bases, confidences), of=raw["of"], for_each=fe)
+    return Required(**_claim(where, raw, origin, bases, confidences), of=raw["of"], for_each=fe, category=cat)
 
 
 def compile_allowed_only(where, raw, origin, bases, confidences, rule_id_re, glob_to_regex) -> AllowedOnly:
@@ -402,6 +407,7 @@ class Result:
     findings: list = field(default_factory=list)          # dicts: path, kind, status, rule (the Claim), reason?
     checked_entries: int = 0
     checked_required: int = 0
+    checked_by_category: dict = field(default_factory=dict)  # category -> checked items (entries are 'standard'; required paths by their category)
     not_checked_files: int = 0
     not_checked: list = field(default_factory=list)       # {path, reason, rule_id?, files}
     typed: dict = field(default_factory=dict)             # directory -> {path_grammar id: tokens}
@@ -518,6 +524,7 @@ def evaluate(paths, path_grammar, name_grammar, required, allowed_only) -> Resul
         for path, pids in expected:
             if path in files_set or path in dirs_present:
                 res.checked_required += 1
+                res.checked_by_category[r.category] = res.checked_by_category.get(r.category, 0) + 1
                 continue
             parent = path.rpartition("/")[0]
             if parent and parent not in dirs_present:
@@ -528,5 +535,75 @@ def evaluate(paths, path_grammar, name_grammar, required, allowed_only) -> Resul
                 continue
             seen_missing.add(path)
             res.checked_required += 1
+            res.checked_by_category[r.category] = res.checked_by_category.get(r.category, 0) + 1
             res.findings.append({"path": path, "kind": "structure", "status": "missing", "rule": r})
     return res
+
+
+# ---- content checks (B2; NOTE-PHASE2 §2 row and §10) ----------------------------------------------------------------------------------------------
+# The ONLY file content conformance may read: a closed list of (file, fields), each tied to the one profile allowed to read it, read only at the
+# scanned root (the dataset root the profile recognizes), under the manifest caps, by the safe JSON parser. Values longer than MAX_VALUE are not stored.
+CONTENT_FILES = {"dataset_description.json": {"fields": ("BIDSVersion", "Name", "License"), "profile": "bids-dataset"}}
+MAX_VALUE = 256
+CT_KEYS = ("id", "file") + CLAIM_KEYS
+CT_OPTIONAL = ("field", "check", "unreadable", "tuned_on")
+
+
+@dataclass(frozen=True)
+class ContentCheck(Claim):
+    file: str = ""
+    field: str | None = None                 # None for the file's `unreadable` item
+    regex: object = None                     # compiled; the field must fully match it
+    non_empty: bool = False                  # the field must not be empty (after stripping white space)
+
+    def judge(self, value):
+        """('', None) when the field passes, else (status, value to store or None)."""
+        if not isinstance(value, str):
+            return "missing-field", None
+        if len(value) > MAX_VALUE:
+            return "invalid-value", None
+        if self.non_empty and not value.strip():
+            return "invalid-value", value
+        if self.regex is not None and self.regex.fullmatch(value) is None:
+            return "invalid-value", value
+        return "", None
+
+
+def compile_content_check(where, raw, origin, bases, confidences, rule_id_re) -> ContentCheck:
+    _keys(where, raw, CT_KEYS, CT_OPTIONAL)
+    _id(where, raw, rule_id_re)
+    where = f"{where} {raw['id']!r}"
+    f = raw["file"]
+    if f not in CONTENT_FILES:
+        raise GrammarError(f"{where}: file {f!r} is not on the closed list of files whose content may be read ({sorted(CONTENT_FILES)})")
+    if CONTENT_FILES[f]["profile"] != origin:
+        raise GrammarError(f"{where}: {f} may be read only by the {CONTENT_FILES[f]['profile']!r} profile")
+    if raw["basis"] != "manifest-content":
+        raise GrammarError(f"{where}: a content check has basis manifest-content")
+    claim = _claim(where, raw, origin, bases, confidences)
+    if raw.get("unreadable") is not None:
+        if raw["unreadable"] is not True or "field" in raw or "check" in raw:
+            raise GrammarError(f"{where}: unreadable: true stands alone (no field, no check)")
+        return ContentCheck(**claim, file=f)
+    fld = raw.get("field")
+    if fld not in CONTENT_FILES[f]["fields"]:
+        raise GrammarError(f"{where}: field {fld!r} is not one of the fields that may be extracted from {f} ({list(CONTENT_FILES[f]['fields'])})")
+    chk = raw.get("check")
+    if not isinstance(chk, dict) or len(chk) != 1 or next(iter(chk)) not in ("regex", "non_empty"):
+        raise GrammarError(f"{where}: check is {{regex: R}} or {{non_empty: true}}")
+    if "regex" in chk:
+        return ContentCheck(**claim, file=f, field=fld, regex=_regex(f"{where} check", chk["regex"]))
+    if chk["non_empty"] is not True:
+        raise GrammarError(f"{where}: non_empty must be true")
+    return ContentCheck(**claim, file=f, field=fld, non_empty=True)
+
+
+def check_content(where, items) -> None:
+    """Each file with field checks has exactly one `unreadable` item, and each field is checked once."""
+    for f in sorted({c.file for c in items}):
+        mine = [c for c in items if c.file == f]
+        if sum(1 for c in mine if c.field is None) != 1:
+            raise GrammarError(f"{where} content_checks: {f} needs exactly one item with unreadable: true")
+        fields = [c.field for c in mine if c.field is not None]
+        if len(set(fields)) != len(fields):
+            raise GrammarError(f"{where} content_checks: a field of {f} is checked twice")
