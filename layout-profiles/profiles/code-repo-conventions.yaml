@@ -6,7 +6,7 @@
 # (a rule motivated by one repository is suspect; ablate it). Tune set: trellis, datahub, superset only (scores provisional). The component rules are
 # FROZEN as in 0.1.0; 0.2.0 adds only the file_roles layer below (path rules, no file content), which can neither change a component nor un-hide a file.
 profile_id: code-repo-conventions
-version: 0.9.0
+version: 0.11.0
 status: proposed
 applies_to: code-repo
 extends: [code-repo]
@@ -15,17 +15,40 @@ relevance:
   primary: [component]
   supporting: [example, fixture, test-support, tooling, source, test, docs, config, build, ci, other]
   hidden: []
+lists:
+  # J0: the closed lists, named once and referred to as $name (a whole value or a list element) or {$name} inside a regex (the items, regex-escaped, joined by |).
+  # A rule that names a list cannot drift from another rule that names the same list. Lists are inherited through extends.
+  manifest-files: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]
+  test-folder-names: [test, tests, testing, __tests__, testbed, testbeds, test-bed, test_bed, e2e, end-to-end, end2end, itest, itests]
+  fixture-folder-names: [testfixtures, fixture, fixtures, testdata, test-data]
+  lint-config-dirs: ["checkstyle", "codenarc", "pmd", "spotbugs", "findbugs", "detekt", "ktlint", "spotless", "eslint", "stylelint", "prettier", "ruff", "flake8", "pylint", "mypy", "scalastyle", "scalafmt", "rubocop", "clang-format", "editorconfig", "codestyle"]
+  lint-config-names: ["checkstyle*.xml", "*suppressions*.xml", "codenarc*.xml", "pmd*.xml", "spotbugs*.xml", "findbugs*.xml", "detekt*.yml", "detekt*.yaml", "ruff.toml", ".ruff.toml", ".flake8", ".pylintrc", "pylintrc", "mypy.ini", ".eslintrc*", "eslint.config.*", ".prettierrc*", "prettier.config.*", ".stylelintrc*", "stylelint.config.*", ".rubocop.yml", ".scalafmt.conf", "scalastyle*.xml", ".clang-format", ".clang-tidy", ".editorconfig", ".golangci.yml", ".golangci.yaml", "tslint.json", "biome.json", "HEADER", "HEADER.txt", "*license-header*", "*license.header*", "*.license.*", "required-header.txt"]
+  app-folders: [apps, app, applications, services, sites, website, web]
+  test-words: [test, tests, testing]
+  gradle-build-files: [build.gradle, build.gradle.kts, settings.gradle, settings.gradle.kts, gradle.properties]
+  docs-site-files: [mkdocs.yml, mkdocs.yaml, docusaurus.config.js, docusaurus.config.ts, docusaurus.config.mjs, docusaurus.config.cjs, conf.py, antora.yml, book.toml, _config.yml, package.json, pom.xml, build.gradle, build.gradle.kts, Makefile]
+  docs-extensions: [.md, .mdx, .rst, .adoc, .asciidoc, .txt, .ipynb]
+settings:
+  # J3: named switches whose DEFAULTS are Dan's rulings (D-J1). A profile that extends this one may set them (`settings: {name: value}`); only the defaults
+  # are held-out-confirmed. Fixed, never settings: the tooling principle of R-tool-package, the test-project principle rules, the names-only promise and
+  # the manifest-reading scope. A setting can only NARROW what is read (D-J4).
+  scripts-are-tooling: {type: bool, default: true, doc: "a top-level scripts folder (and a manifest project under a scripts segment) is tooling, not a component (Phase 1h H1). Off: scripts folders are judged by the other rules"}
+  lint-config-is-tooling: {type: bool, default: true, doc: "a top-level config folder holding only linter or style configuration is tooling (Phase 1h H2). Off: every top-level config folder is a configuration component"}
+  docs-min-files: {type: int, default: 2, doc: "the number of documentation files that makes a docs folder (or src/docs, src/main/docs) a documentation component when it holds no site or build configuration (Phase 1g G2)"}
+  private-test-packages-internal: {type: bool, default: true, reads: [package-json.private], doc: "a private, test-named npm package is test support, not a component (Phase 1i I1/I1b). Off: the rule is inactive AND the private field of package.json is not read"}
+  gradle-test-projects-internal: {type: bool, default: true, doc: "a test-named Gradle project with no main source set and more than its build files is a test project, not a component (Phase 1i I1-G)"}
+  src-docs-is-documentation: {type: bool, default: true, doc: "src/docs or src/main/docs at the repository root is a documentation component (Phase 1i I3)"}
 rules:
   - id: R-conv-tests
-    match: {path_glob: "*", name_regex: ['(?i)^(?:test|tests|testing|__tests__)$|(?:_|-)tests$']}
+    match: {path_glob: "*", name_regex: ['(?i)^(?:{$test-folder-names})$|(?:_|-)tests$']}
     assign: {role: component, kind: test-suite}
     grain: component
     basis: convention
     confidence: medium
-    evidence: "a top-level folder named test, tests, testing or __tests__, or ending in the PLURAL _tests or -tests (integration_tests, unit-tests), is the repository's test suite; it is checked BEFORE the fixture rule so only the manifest projects INSIDE it are excluded"
-    tuned_on: [superset, datahub]
+    evidence: "a top-level folder named test, tests, testing or __tests__, or ending in the PLURAL _tests or -tests (integration_tests, unit-tests), is the repository's test suite; it is checked BEFORE the fixture rule so only the manifest projects INSIDE it are excluded. Phase 1i I2: also testbed, testbeds, test-bed, test_bed, e2e, end-to-end, end2end, itest and itests (case-insensitive, whole name; a closed list, the same names as in R-fx-test-project). Known limit: other names (qa, compat) are not test suites"
+    tuned_on: [superset, datahub, "Phase 1i I2 (Dan's ruling 2: more test-folder names; a closed list, not fitted to a repository)"]
   - id: R-conv-test-group
-    match: {path_glob: "*", name_regex: ['(?i)(?:_|-)test$'], groups_projects: {min: 2, files: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}}
+    match: {path_glob: "*", name_regex: ['(?i)(?:_|-)test$'], groups_projects: {min: 2, files: $manifest-files}}
     assign: {role: component, kind: test-suite}
     grain: component
     basis: convention
@@ -33,15 +56,15 @@ rules:
     evidence: "a top-level folder whose name ends in the SINGULAR _test or -test, that is not itself a project (no manifest of its own, not a declared member) and that has more than one project below it (at least 2), groups the repository's tests: it is a test-suite, like a plural -tests folder, and the projects inside it are excluded (R-fx-test-group-project). A leaf project named ...-test is a package and is not touched. Known limit: a real product folder that groups two or more published test libraries would be excluded"
     tuned_on: ["spring-boot (D6, spent)"]
   - id: R-fx-test-project
-    match: {segment_regex: ['(?i)^(?:test|tests|testing|__tests__|testfixtures|fixture|fixtures|testdata|test-data)$|(?:_|-)tests$', '(?i)(?:^|[-_.])(?:test|tests|testing)[-_.]+\d[\d.]*(?:[-_.]?[a-z0-9]{1,6})?$', '(?i)^tests?[-_]'], child_segment_regex: {parent: [src], regex: ['^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*)*Tests?$', '^tests?(?:[A-Z][a-z0-9]*)+$']}, has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    match: {segment_regex: ['(?i)^(?:{$test-folder-names}|{$fixture-folder-names})$|(?:_|-)tests$', '(?i)(?:^|[-_.])(?:test|tests|testing)[-_.]+\d[\d.]*(?:[-_.]?[a-z0-9]{1,6})?$', '(?i)^tests?[-_]'], child_segment_regex: {parent: [src], regex: ['^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*)*Tests?$', '^tests?(?:[A-Z][a-z0-9]*)+$']}, has_file: $manifest-files}
     assign: {role: fixture, kind: sample-project}
     grain: dir
     basis: convention
     confidence: medium
-    evidence: "a manifest project whose path has a test, tests, testing, __tests__, testFixtures, fixture(s), testdata or test-data segment, or one ending in the plural _tests or -tests, is a fixture (the singular -test and _test are not: a package may be named for a statistical test). Also: a test word (test, tests, testing) followed by a version or number tail (foo-tests-44, tests_2, integration-tests-3.7), and a segment that STARTS with test-, test_, tests- or tests_. Known limit, kept by Dan: a PUBLISHED test library named that way (a test-utils artifact) is excluded of the test suite, not a package of the repository. Also (F1): a camelCase TEST SOURCE SET, a segment whose PARENT segment is exactly src and whose name is camelCase ending in a capitalized Test or Tests (lower-case start), or starting with a lower-case test or tests followed by capitalized words; case-sensitive, no word list of prefixes. A project nested under it, or one whose own directory is the source set, is a fixture. Known limits: Maven's src/it is not matched (not camelCase); a source set without a test word (src/e2e, src/benchmarks) is not matched; a project under a Kotlin Multiplatform test source set (commonTest, jvmTest) is a fixture, as intended"
-    tuned_on: [trellis, datahub, "iceberg (M8, spent)", "dagster (M8, spent)", "spring-boot (D6, spent)"]
+    evidence: "a manifest project whose path has a test, tests, testing, __tests__, testFixtures, fixture(s), testdata or test-data segment (Phase 1i I2: or a testbed, testbeds, test-bed, test_bed, e2e, end-to-end, end2end, itest or itests segment, the names R-conv-tests gained), or one ending in the plural _tests or -tests, is a fixture (the singular -test and _test are not: a package may be named for a statistical test). Also: a test word (test, tests, testing) followed by a version or number tail (foo-tests-44, tests_2, integration-tests-3.7), and a segment that STARTS with test-, test_, tests- or tests_. Known limit, kept by Dan: a PUBLISHED test library named that way (a test-utils artifact) is excluded of the test suite, not a package of the repository. Also (F1): a camelCase TEST SOURCE SET, a segment whose PARENT segment is exactly src and whose name is camelCase ending in a capitalized Test or Tests (lower-case start), or starting with a lower-case test or tests followed by capitalized words; case-sensitive, no word list of prefixes. A project nested under it, or one whose own directory is the source set, is a fixture. Known limits: Maven's src/it is not matched (not camelCase); a source set without a test word (src/benchmarks) is not matched (src/e2e is matched since Phase 1i I2, by its e2e segment); a project under a Kotlin Multiplatform test source set (commonTest, jvmTest) is a fixture, as intended"
+    tuned_on: [trellis, datahub, "iceberg (M8, spent)", "dagster (M8, spent)", "spring-boot (D6, spent)", "Phase 1i I2 (the same closed list of test-folder names as R-conv-tests)"]
   - id: R-fx-test-group-project
-    match: {group_segment_regex: {min: 2, files: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile], regex: ['(?i)(?:_|-)test$']}, has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    match: {group_segment_regex: {min: 2, files: $manifest-files, regex: ['(?i)(?:_|-)test$']}, has_file: $manifest-files}
     assign: {role: fixture, kind: sample-project}
     grain: dir
     basis: convention
@@ -49,7 +72,7 @@ rules:
     evidence: "a manifest project below a folder whose name ends in the SINGULAR _test or -test, when that folder is not itself a project and has more than one project below it, is a test project, not a package of the repository (the folder groups tests). A leaf project that is itself named ...-test is not below such a folder and stays a component. Known limit: a folder that groups two or more published test libraries"
     tuned_on: ["spring-boot (D6, spent)"]
   - id: R-fx-sample-project
-    match: {segment_regex: ['(?i)^(?:sample|samples|example|examples|template|templates|demo|demos)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    match: {segment_regex: ['(?i)^(?:sample|samples|example|examples|template|templates|demo|demos)$'], has_file: $manifest-files}
     assign: {role: example, kind: sample-project}
     grain: dir
     basis: convention
@@ -57,23 +80,43 @@ rules:
     evidence: "a manifest project whose path has a sample(s), example(s), template(s) or demo(s) segment declares a sample, template or demo project, not a package of the repository"
     tuned_on: [trellis, datahub, "dagster (M8, spent)"]
   - id: R-fx-benchmark-project
-    match: {segment_regex: ['(?i)^(?:benchmarks?|bench|jmh)$|^(?:benchmarks?|bench|jmh)[-_]|[-_](?:benchmarks?|bench|jmh)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    match: {segment_regex: ['(?i)^(?:benchmarks?|bench|jmh)$|^(?:benchmarks?|bench|jmh)[-_]|[-_](?:benchmarks?|bench|jmh)$'], has_file: $manifest-files}
     assign: {role: test-support, kind: benchmark-project}
     grain: dir
     basis: convention
     confidence: medium
     evidence: "a manifest project whose path has a benchmark, benchmarks, bench or jmh segment, or one starting or ending with one of them joined by - or _, is a benchmark harness: test support, not a package the repository ships"
     tuned_on: ["kafka (N7, spent)"]
+  - id: R-fx-gradle-test-project
+    match: {has_file: [build.gradle, build.gradle.kts], test_project: {name_words: $test-words, not_child_dir: {parent: src, regex: ['^main$', 'Main$']}, other_than: $gradle-build-files}}
+    when: {gradle-test-projects-internal: true}
+    assign: {role: fixture, kind: test-project}
+    grain: dir
+    file_scope: true
+    basis: convention
+    confidence: medium
+    evidence: "a Gradle project (a directory holding build.gradle or build.gradle.kts, not the repository root) is an internal test project, not a component, when ALL of: a word of its directory name, split at - and _, is test, tests or testing (case-insensitive: x-codegen-test, x-protocol-test-codegen, test-x; not contest, attestation, latest-x); it has NO src/main folder and no src/<x>Main folder (a child of src whose name ends in a capitalised Main, such as the Kotlin Multiplatform commonMain or jvmMain; Phase 1i I1b): it ships no code; and it holds at least one file or folder other than build.gradle, build.gradle.kts, settings.gradle, settings.gradle.kts and gradle.properties (a project that is only a build file is a dependency starter or a BOM and stays a component). A Gradle project nested anywhere below such a project is one too, whatever its name. Names and folder presence only; no build file is opened. The test-folder and fixture rules above keep precedence. Its files keep their file roles (a file-role scope). Known limits: an internal test-support library WITH src/main (x-test-utils) stays a component; a test project that holds only its build file stays a component (it cannot be told from a starter)"
+    tuned_on: ["Phase 1i I1-G (Dan's pick B; clause (c) added by the Architect against the starter ruling; the word list and the build-file list are closed lists, not fitted to a repository)", "Phase 1i I1b (the Architect's ruling on the I4 fit: a Kotlin Multiplatform main source set counts as src/main; a naming convention, not fitted to a repository)"]
   - id: R-conv-docs
-    match: {path_glob: [docs, doc, documentation], min_content: {files: [mkdocs.yml, mkdocs.yaml, docusaurus.config.js, docusaurus.config.ts, docusaurus.config.mjs, docusaurus.config.cjs, conf.py, antora.yml, book.toml, _config.yml, package.json, pom.xml, build.gradle, build.gradle.kts, Makefile], min_files: 2, extensions: [.md, .mdx, .rst, .adoc, .asciidoc, .txt, .ipynb]}}
+    match: {path_glob: [docs, doc, documentation], min_content: {files: $docs-site-files, min_files: $docs-min-files, extensions: $docs-extensions}}
     assign: {role: component, kind: documentation}
     grain: component
     basis: convention
     confidence: medium
     evidence: "a top-level docs, doc or documentation directory holds the repository's documentation ONLY when it holds a site or build configuration file (mkdocs.yml or .yaml, docusaurus.config.js/ts/mjs/cjs, conf.py, antora.yml, book.toml, _config.yml, package.json, pom.xml, build.gradle(.kts) or Makefile) directly or in a direct child folder (docs/source/conf.py), or at least 2 documentation files (.md, .mdx, .rst, .adoc, .asciidoc, .txt, .ipynb) anywhere below it; names only, no file is opened. The threshold of 2 is a judgement: a single notes file is not a documentation component. Otherwise the folder is not a component; its files are still classified and counted. Known limits: a site config deeper than one level below the folder is not seen (the folder is then judged by its documentation files); 2 notes make a component"
     tuned_on: [trellis, datahub, "Phase 1g G2 (minimum content; the file names and extensions are closed lists of documentation tools, not fitted to a repository)"]
+  - id: R-conv-src-docs
+    match: {path_glob: [src/docs, src/main/docs], min_content: {files: $docs-site-files, min_files: $docs-min-files, extensions: $docs-extensions}}
+    when: {src-docs-is-documentation: true}
+    assign: {role: component, kind: documentation}
+    grain: component
+    basis: convention
+    confidence: medium
+    evidence: "a documentation folder under the ROOT project's src, at exactly src/docs or src/main/docs (the Gradle and Maven convention for a guide, such as an Asciidoctor manual), holds the repository's documentation, with the SAME minimum-content test as R-conv-docs (a site or build configuration file directly in it or in a direct child folder, or at least 2 documentation files anywhere below it; names only, no file is opened). The component is that docs folder, not a child such as guide/. Repository root only: a src/main/docs inside a sub-project is not matched. Its files keep their file roles. Known limit: src/docs and src/main/docs are recognised at the repository root only"
+    tuned_on: ["Phase 1i I3 (Dan's ruling 3: a documentation guide under src/main/docs counts as documentation; the two paths and the content lists are those of R-conv-docs, not fitted to a repository)"]
   - id: R-conv-config-lint
-    match: {path_glob: [config, configs, conf], only_files: {child_dirs: ["checkstyle", "codenarc", "pmd", "spotbugs", "findbugs", "detekt", "ktlint", "spotless", "eslint", "stylelint", "prettier", "ruff", "flake8", "pylint", "mypy", "scalastyle", "scalafmt", "rubocop", "clang-format", "editorconfig", "codestyle"], names: ["checkstyle*.xml", "*suppressions*.xml", "codenarc*.xml", "pmd*.xml", "spotbugs*.xml", "findbugs*.xml", "detekt*.yml", "detekt*.yaml", "ruff.toml", ".ruff.toml", ".flake8", ".pylintrc", "pylintrc", "mypy.ini", ".eslintrc*", "eslint.config.*", ".prettierrc*", "prettier.config.*", ".stylelintrc*", "stylelint.config.*", ".rubocop.yml", ".scalafmt.conf", "scalastyle*.xml", ".clang-format", ".clang-tidy", ".editorconfig", ".golangci.yml", ".golangci.yaml", "tslint.json", "biome.json", "HEADER", "HEADER.txt", "*license-header*", "*license.header*", "*.license.*", "required-header.txt"]}}
+    match: {path_glob: [config, configs, conf], only_files: {child_dirs: $lint-config-dirs, names: $lint-config-names}}
+    when: {lint-config-is-tooling: true}
     assign: {role: tooling, kind: lint-configuration}
     grain: dir
     file_scope: true
@@ -91,6 +134,7 @@ rules:
     tuned_on: [trellis]
   - id: R-conv-scripts
     match: {path_glob: "*", segment_regex: ['(?i)^scripts?$|^scripts?[-_]']}
+    when: {scripts-are-tooling: true}
     assign: {role: tooling, kind: maintenance-scripts}
     grain: dir
     file_scope: true
@@ -99,7 +143,7 @@ rules:
     evidence: "a top-level directory named scripts or script, or starting scripts-, scripts_, script- or script_ (case-insensitive, whole segment), holds the repository's own maintenance scripts: it is tooling, not a component. Its files keep their file roles (it is a file-role scope, as a component directory is). Known limit: a scripts folder that is really a shipped package (a published CLI under scripts/) becomes tooling; names cannot tell the difference"
     tuned_on: [trellis, superset, "Phase 1h H1 (Dan's ruling: scripts/ is tooling; the name forms are a closed list, not fitted to a repository)"]
   - id: R-tool-package
-    match: {segment_regex: ['(?i)^(?:tools|tooling|devtools|dev-tools|build-tools|buildsrc|_ext|scripts|script)$|^scripts?[-_]|^(?:\.github|\.circleci|\.buildkite|ci|\.ci|\.teamcity|\.gitlab|\.azure-pipelines|\.azuredevops|\.woodpecker|\.tekton|\.semaphore|\.jenkins)$'], has_file: [pyproject.toml, setup.py, package.json, pom.xml, build.gradle, build.gradle.kts, Cargo.toml, go.mod, Chart.yaml, Dockerfile]}
+    match: {segment_regex: ['(?i)^(?:tools|tooling|devtools|dev-tools|build-tools|buildsrc|_ext)$|^(?:\.github|\.circleci|\.buildkite|ci|\.ci|\.teamcity|\.gitlab|\.azure-pipelines|\.azuredevops|\.woodpecker|\.tekton|\.semaphore|\.jenkins)$', {when: {scripts-are-tooling: true}, item: '(?i)^(?:scripts|script)$|^scripts?[-_]'}], has_file: $manifest-files}
     assign: {role: tooling, kind: tooling-package}
     grain: dir
     basis: convention
@@ -130,6 +174,16 @@ rules:
     confidence: low
     evidence: "a top-level directory with an __init__.py is an importable Python package even where the manifest sits at the repository root"
     tuned_on: [superset]
+  - id: R-ts-private-package
+    match: {has_file: package.json, manifest_private: true, name_word: $test-words, not_path_segment: $app-folders}
+    when: {private-test-packages-internal: true}
+    assign: {role: test-support, kind: private-package}
+    grain: dir
+    file_scope: true
+    basis: manifest-content
+    confidence: medium
+    evidence: "a directory other than the repository root whose package.json (read from the git object database) has the top-level field private set to the boolean true, AND whose own name has a word, split at - and _, that is test, tests or testing (case-insensitive; the words of R-fx-gradle-test-project; Phase 1i I1b), is an internal test package of the repository (a test harness such as util-test), not a component, UNLESS a whole segment of its path (its own name included, case-insensitive) is apps, app, applications, services, sites, website or web: a private application in a monorepo stays a component. Only the one boolean is read; the string \"true\", false or no field change nothing. Without manifest reading the rule never applies. Its files keep their file roles (a file-role scope). Known limits: a private internal package WITHOUT a test word in its name (a private example, model or fixture package under private/) stays a component; a private test-named package that is a real product outside those folder names becomes test-support"
+    tuned_on: ["Phase 1i I1 (Dan's ruling 1: internal test projects outside a top-level test folder are not components; the exempt folder names are a closed list, not fitted to a repository)", "Phase 1i I1b (the Architect's ruling on the I4 fit: a test word in the name is required; the words are those of R-fx-gradle-test-project, not fitted to a repository)"]
   - id: R-conv-node-src
     match: {path_glob: "*/src", parent_has_file: package.json, parent_not_role: [tooling]}
     assign: {role: component, kind: source-root}

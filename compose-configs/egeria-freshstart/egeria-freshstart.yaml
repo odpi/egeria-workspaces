@@ -261,6 +261,7 @@ services:
       - ../../runtime-volumes/freshstart-apache-web/ErrorLogs:/usr/local/apache2/logs
       - ../../templates:/usr/local/apache2/htdocs/Dr-Egeria-Samples/templates
       - ../../portal-docs:/usr/local/apache2/htdocs/docs
+      - ../../portal-vendor:/usr/local/apache2/vendor:ro   # PO-87: /vendor/ (browser libraries, see httpd.conf)
     depends_on:
       - freshstart-pyegeria-web
 

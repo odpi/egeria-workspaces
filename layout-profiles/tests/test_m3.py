@@ -2,7 +2,6 @@
 candidate-copies report. Synthetic path lists; the tune-tree pins skip when the lists are not given."""
 import json
 import os
-import shutil
 from pathlib import Path
 
 import pytest
@@ -86,8 +85,7 @@ def test_in_the_docs_site_profile_mkdocs_yml_wins_over_the_docs_folder_rule(tmp_
 
 
 def compose(tmp_path, name, order):
-    for n in ("generic-relevance", "docs-site", "code-repo", "code-repo-conventions"):
-        shutil.copy(PROFILES / f"{n}.yaml", tmp_path / f"{n}.yaml")
+    # Phase 1j J3b: an overlay in this folder extends the SHIPPED profiles in place; a copy here would itself be an overlay (and may not add a reader)
     (tmp_path / f"{name}.yaml").write_text(
         f"profile_id: {name}\nversion: 0.1.0\nstatus: proposed\napplies_to: any\nextends: {order}\nroles: [component]\n"
         "relevance: {primary: [component], supporting: [], hidden: []}\nrules: []\n")
@@ -118,9 +116,13 @@ def test_a_shared_base_is_loaded_once_and_a_real_clash_is_still_an_error(tmp_pat
     base = yaml.safe_load((PROFILES / "worktree-copies.yaml").read_text())
     clash = {**base, "profile_id": "clash"}
     (tmp_path / "clash.yaml").write_text(yaml.safe_dump(clash))
-    (tmp_path / "other.yaml").write_text(yaml.safe_dump({**base, "profile_id": "other", "extends": ["clash"]}))      # same rule id, two profiles
-    with pytest.raises(ProfileError):
-        load_profile("other", tmp_path)
+    (tmp_path / "other.yaml").write_text(yaml.safe_dump({**base, "profile_id": "other", "extends": ["clash"]}))
+    o = load_profile("other", tmp_path)                                        # Phase 1j J1: a child's rule with an inherited id REPLACES it in place
+    assert set(o.replaced) == {r["id"] for r in base["rules"]} and all(r.origin == "other" for r in o.rules if r.id in o.replaced)
+    (tmp_path / "clash2.yaml").write_text(yaml.safe_dump({**base, "profile_id": "clash2"}))
+    (tmp_path / "both2.yaml").write_text(yaml.safe_dump({**base, "profile_id": "both2", "extends": ["clash", "clash2"], "rules": []}))
+    with pytest.raises(ProfileError):                                          # the same rule id from two DIFFERENT extended profiles: still an error
+        load_profile("both2", tmp_path)
 
 
 def test_sections_are_not_components_here(tmp_path):
@@ -175,9 +177,7 @@ def test_only_the_named_kind_is_compared(tmp_path):
     p = tmp_path / "m.tsv"
     p.write_text("".join(r + "\n" for r in rows))
     from recognizer.layout_profile import load_profile as lp
-    shutil.copy(PROFILES / "code-repo.yaml", tmp_path / "code-repo.yaml")
-    shutil.copy(PROFILES / "docs-site.yaml", tmp_path / "docs-site.yaml")
-    shutil.copy(PROFILES / "generic-relevance.yaml", tmp_path / "generic-relevance.yaml")
+    # Phase 1j J3b: an overlay in this folder extends the SHIPPED profiles in place; a copy here would itself be an overlay (and may not add a reader)
     (tmp_path / "both.yaml").write_text("profile_id: both\nversion: 0.1.0\nstatus: proposed\napplies_to: any\nextends: [docs-site, code-repo]\nroles: [component]\n"
                                         "relevance: {primary: [component], supporting: [], hidden: []}\nrules: []\n")
     Recognizer(lp("both", tmp_path)).run(p, tmp_path / "o", copies_of=("docs-site",))

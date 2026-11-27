@@ -12,6 +12,16 @@ from recognizer.layout_profile import ProfileError, load_profile
 from recognizer.recognize import Recognizer
 
 PROFILES = Path(__file__).resolve().parent.parent / "profiles"
+
+
+def _defined_by():
+    from recognizer.layout_profile import load_profile as _lp
+    p = _lp("code-repo-conventions", Path(__file__).resolve().parent.parent / "profiles")
+    return {r.id: r.origin for r in (*p.rules, *p.file_roles)} | {getattr(p.manifest_reading, k).id: getattr(p.manifest_reading, k).origin
+                                                                  for k in ("member_rule", "aggregator_rule", "included_build_rule") if getattr(p.manifest_reading, k)}
+
+
+DEFINED_BY = _defined_by()                       # rule id -> the profile that defines it (Phase 1j J6: finding ids are made from it)
 RECOGNIZER = Path(__file__).resolve().parent.parent / "recognizer"
 
 
@@ -189,7 +199,7 @@ def test_finding_ids_of_unaffected_components_do_not_change(tmp_path):
     assert load_profile("code-repo-conventions", PROFILES).major == "0"
     for d in ("core", "lib"):
         rid = r1.f[d]["rule_id"]
-        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"code-repo-conventions@0|{rid}|{d}".encode()).hexdigest()[:16]
+        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"{DEFINED_BY[rid]}@0|{rid}|{d}".encode()).hexdigest()[:16]     # Phase 1j J6: the profile that defines the rule
 
 
 # ---- (9) the composite profile with docs-site behaves the same
@@ -237,6 +247,6 @@ def test_child_segment_regex_alone_is_a_directory_rule_and_matches_only_under_it
 def test_the_f1_rule_keeps_its_id_and_carries_provenance_and_the_known_limits():
     p = load_profile("code-repo-conventions", PROFILES)
     r = {x.id: x for x in p.rules}["R-fx-test-project"]
-    assert p.version == "0.9.0" and r.child_seg_parents == frozenset({"src"}) and len(r.child_seg_res) == 2 and r.role == "fixture"
+    assert p.version == "0.11.0" and r.child_seg_parents == frozenset({"src"}) and len(r.child_seg_res) == 2 and r.role == "fixture"
     assert "spring-boot (D6, spent)" in r.tuned_on and "src/it" in r.evidence and "Multiplatform" in r.evidence
     assert all("(?i)" not in rx.pattern for rx in r.child_seg_res)   # case-sensitive

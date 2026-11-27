@@ -88,10 +88,13 @@ def test_a_singular_test_folder_that_is_itself_a_project_is_unchanged(tmp_path):
     assert "x-test/a" in r.allc and "x-test/b" in r.allc
 
 
-def test_a_singular_test_folder_that_is_a_declared_gradle_project_is_unchanged(tmp_path):
+def test_a_singular_test_folder_that_is_a_declared_gradle_project_is_a_gradle_test_project_since_i1g(tmp_path):
+    # Phase 1i I1-G (Dan's pick B): x-test is a Gradle project with a test word, no src/main and folders besides its build file: a fixture (test-project),
+    # and so are the Gradle projects nested below it. Before I1-G all three were components.
     files = {**ROOT, "settings.gradle": "include 'x-test', 'x-test:a', 'x-test:b'\n", "x-test/build.gradle": "", "x-test/a/build.gradle": "", "x-test/b/build.gradle": ""}
     r = survey(tmp_path, files)
-    assert "x-test" in r.allc and "x-test/a" in r.allc and "x-test/b" in r.allc
+    assert not {"x-test", "x-test/a", "x-test/b"} & set(r.allc)
+    assert all(r.f[d]["rule_id"] == "R-fx-gradle-test-project" and r.f[d]["role"] == "fixture" for d in ("x-test", "x-test/a", "x-test/b"))
 
 
 # ---- (6) words that end in "test" without the separator ----------------------------------------------------------------------------------------------------------
@@ -200,7 +203,7 @@ def test_the_e1_rules_are_structural_and_carry_provenance_and_the_known_limit():
     p = load_profile("code-repo-conventions", PROFILES)
     by = {r.id: r for r in p.rules}
     ids = [r.id for r in p.rules]
-    assert p.version == "0.9.0" and ids.index("R-conv-tests") < ids.index("R-conv-test-group") < ids.index("R-fx-test-project") < ids.index("R-fx-test-group-project") < ids.index("R-fx-sample-project")
+    assert p.version == "0.11.0" and ids.index("R-conv-tests") < ids.index("R-conv-test-group") < ids.index("R-fx-test-project") < ids.index("R-fx-test-group-project") < ids.index("R-fx-sample-project")
     for rid in ("R-conv-test-group", "R-fx-test-group-project"):
         assert by[rid].tuned_on == ("spring-boot (D6, spent)",) and "Known limit" in by[rid].evidence and by[rid].group_min == 2
     assert by["R-conv-test-group"].kind == "test-suite" and by["R-conv-test-group"].grain == "component" and by["R-fx-test-group-project"].role == "fixture"

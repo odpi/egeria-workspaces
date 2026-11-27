@@ -31,11 +31,13 @@ try:
     from .layout_profile import Profile, Rule, compose_profiles, load_profile
     from . import manifests as mf
     from . import grammar as gm
+    from . import configuration as cfg
 except ImportError:                                   # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from layout_profile import Profile, Rule, compose_profiles, load_profile  # type: ignore
     import manifests as mf  # type: ignore
     import grammar as gm  # type: ignore
+    import configuration as cfg  # type: ignore
 
 UNCLASSIFIED = "unclassified"
 SOURCE_EXTENSIONS = (".py", ".pyi", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".java", ".kt", ".scala", ".go", ".rs", ".rb", ".php", ".c", ".h", ".cc", ".cpp",
@@ -52,9 +54,15 @@ DOC_SKIP_NAMES = frozenset({"assets", "js", "css", "img", "images", "overrides",
 DEFAULT_PROFILES = Path(__file__).resolve().parent.parent / "profiles"
 
 
-def finding_id(profile: Profile, rule_id: str, path: str) -> str:
-    """Stable across surveys: the profile, its MAJOR version, the rule and the repo-relative path. No time, run id or tree sha."""
-    return hashlib.sha256(f"{profile.profile_id}@{profile.major}|{rule_id}|{path}".encode("utf-8")).hexdigest()[:16]
+def finding_id(profile: Profile, rule_id: str, path: str, origin: str | None = None) -> str:
+    """Stable across surveys: the DEFINING profile (J6, D-J3: the profile whose file defines the rule, `origin`; an in-place replacement defines it anew),
+    that profile's MAJOR version, the rule and the repo-relative path. No time, run id or tree sha, and no composed profile id: the same rule on the same path
+    keeps its id whichever profile or composition ran it. Without `origin` the run's profile is used (the pre-J6 id)."""
+    if origin is None:
+        pid, major = profile.profile_id, profile.major
+    else:
+        pid, major = origin, dict(profile.composed_of).get(origin, profile.version).split(".")[0]
+    return hashlib.sha256(f"{pid}@{major}|{rule_id}|{path}".encode("utf-8")).hexdigest()[:16]
 
 
 def parse_line(line: str, number: int) -> tuple[str, int]:
@@ -149,12 +157,18 @@ class Recognizer:
                 self.nosource_names |= r.names
             for cp in r.child_dirs:
                 self.child_first.setdefault(cp.split("/")[0], set()).add(cp)
+        self._private_dirs: set = set()               # I1: directories whose package.json was read and says "private": true
+        # I1-G (test_project): per rule id, the directories that hold a file or a folder whose name is not on the rule's other_than list
+        self.tp_rules = [r for r in self.dir_rules if r.test_project]
+        self._tp_other: dict = {r.id: set() for r in self.tp_rules}
+        self._tp_main: dict = {r.id: set() for r in self.tp_rules}   # I1b: directories with a folder below their `not_child_dir` parent (src) whose name matches
         self.component_dirs: set = set()             # directories a component rule claims (filled by index_directories); '' is the root
         self.scope_dirs: set = set()                 # component_dirs and the directories a file_scope rule claims: where component_scope file rules apply
         # hidden subtree rules that depend on the path alone (a rule that also tests a file name cannot say a DIRECTORY is hidden)
         self.hidden_subtrees = [r for r in self.file_rules if r.grain == "subtree" and r.relevance == "hidden"
                                 and set(r.match) <= {"path_segment", "path_glob"}]
         self.claims: dict[str, Rule] = {}             # directory -> the first dir rule that claims it
+        self._structural_origin = {sr["id"]: sr.get("origin", profile.profile_id) for sr in profile.structural}   # J6: the profile that defines each structural rule
         self.subtree_claims: dict[str, set] = {}      # rule id -> directories claimed with grain subtree
 
     def inside_hidden_subtree(self, d: str) -> bool:
@@ -216,6 +230,18 @@ class Recognizer:
             pc = self.claims.get(d[:d.rfind("/")] if "/" in d else "")
             if pc is not None and pc.role in r.parent_not_roles:
                 return False
+        if r.manifest_private and (not d or d not in self._private_dirs):
+            return False
+        if r.not_segments and any(sg.lower() in r.not_segments for sg in segs):
+            return False
+        if r.test_project:
+            if not d:
+                return False
+            if not any(a and self.claims.get(a) is r for a in anc):                          # not nested below a project this rule claimed: the three tests
+                if not (set(re.split(r"[-_]", name.lower())) & r.tp_words) or d in self._tp_main[r.id] or d not in self._tp_other[r.id]:
+                    return False
+        if r.name_words and not (set(re.split(r"[-_]", name.lower())) & r.name_words):
+            return False
         if r.content_min and not (r.content_files & (self._content_at.get(d, set()) | self._content_child.get(d, set()))
                                   or self._content_count.get(r.content_exts, {}).get(d, 0) >= r.content_min):
             return False
@@ -311,6 +337,15 @@ class Recognizer:
                         st = state.setdefault(a, [0, 0])
                         st[0] += 1
                         st[1] += 0 if ok else 1
+            if self.tp_rules:
+                psegs = path.split("/")
+                for r in self.tp_rules:
+                    other, main = self._tp_other[r.id], self._tp_main[r.id]
+                    for i in range(len(psegs)):
+                        if psegs[i] not in r.tp_other_than:                       # a file (the last segment) or a folder directly in "/".join(psegs[:i])
+                            other.add("/".join(psegs[:i]))
+                        if i + 1 < len(psegs) - 1 and psegs[i] == r.tp_nc_parent and any(rx.search(psegs[i + 1]) for rx in r.tp_nc_res):
+                            main.add("/".join(psegs[:i]))                         # <d>/src/<main or ...Main>/ is a FOLDER (something lies below it)
             if mr is not None and name in mf.ALLOWED_FILES:
                 candidates_m.append((path, size))
                 if name == ".gitmodules":
@@ -351,6 +386,7 @@ class Recognizer:
         self.hidden_roots = hidden_roots
         if mr is not None:
             self._read_manifests(mr, candidates_m)
+            self._private_dirs = {dc.directory for decls in self.reading.decls.values() for dc in decls if dc.reader == "package-json" and dc.private and not dc.members}
             if self.reading is not None and "mkdocs" in mr.readers:
                 self._apply_docs_dirs(mr, all_dirs)
         self._holders = holders
@@ -558,7 +594,7 @@ class Recognizer:
 
     def _read_manifests(self, mr, candidates: list) -> None:
         self.reading = mf.read_manifests(candidates, self.blob_source, set(mr.readers) - {"gitmodules"}, self._file_is_hidden, max_file_bytes=mr.max_file_bytes,
-                                         max_blobs=mr.max_blobs, max_total_bytes=mr.max_total_bytes, out=self.reading)
+                                         max_blobs=mr.max_blobs, max_total_bytes=mr.max_total_bytes, out=self.reading, skip=mr.skip_fields)
 
     @staticmethod
     def _safe_rel(p):
@@ -952,7 +988,7 @@ class Recognizer:
 
     def finding(self, rule: Rule, path: str, grain: str, extra: dict | None = None) -> dict:
         f = {
-            "finding_id": finding_id(self.p, rule.id, path), "path": path, "role": rule.role, "kind": rule.kind, "relevance": rule.relevance,
+            "finding_id": finding_id(self.p, rule.id, path, self._structural_origin.get(rule.id, rule.origin) if rule.origin == "structural" else rule.origin), "path": path, "role": rule.role, "kind": rule.kind, "relevance": rule.relevance,
             "rule_id": rule.id, "basis": rule.basis, "confidence": rule.confidence, "evidence": rule.evidence, "grain": grain,
             "profile_id": self.p.profile_id, "profile_version": self.p.version,
         }
@@ -962,10 +998,10 @@ class Recognizer:
 
     # ---- conformance (Phase 2, notebook 05) ----------------------------------------------------------------------------------
     def conformance_finding(self, f: dict) -> dict:
-        """A conformance finding: kind structure | naming | content-type and a status. Same finding_id formula as every other finding, with
+        """A conformance finding: kind structure | naming | content-type and a status. Same finding_id formula as every other finding (J6: from the grammar rule's defining profile, `r.origin`), with
         path = the EXPECTED path for a `missing` one, so a missing file keeps its id across surveys."""
         r = f["rule"]
-        out = {"finding_id": finding_id(self.p, r.id, f["path"]), "path": f["path"], "kind": f["kind"], "status": f["status"], "rule_id": r.id,
+        out = {"finding_id": finding_id(self.p, r.id, f["path"], r.origin), "path": f["path"], "kind": f["kind"], "status": f["status"], "rule_id": r.id,
                "basis": r.basis, "confidence": r.confidence, "evidence": r.evidence, "grain": "conformance", "profile_id": self.p.profile_id,
                "profile_version": self.p.version}
         if f.get("reason"):
@@ -1247,6 +1283,7 @@ class Recognizer:
         if self.p.file_roles:                                      # the file-role layer: `other` is classified, and reported beside the target
             classes["shares"]["other_files"] = share(by_role.get("other", [0, 0])[0], total_files)
             classes["shares"]["other_bytes"] = share(by_role.get("other", [0, 0])[1], total_bytes)
+        classes["configuration"] = cfg.provenance(self.p)          # J5: the chain, the settings, what was disabled, replaced or overridden, config_sha256
         (out / "classes.json").write_text(json.dumps(classes, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
         (out / "report.md").write_text(render_report(classes), encoding="utf-8")
         return classes
@@ -1277,6 +1314,8 @@ def render_report(c: dict) -> str:
     for rid, v in sorted(c["by_rule"].items(), key=lambda kv: (-kv[1]["files"], kv[0])):
         lines.append(f"| {rid} | {v['files']:,} | {v['bytes']:,} |")
     lines += ["", "Unclassified is a result, not a failure: no rule of this profile claims those files.", ""]
+    if "configuration" in c:                                         # J5
+        lines += cfg.report_section(c["configuration"])[1:] + [""]
     return "\n".join(lines)
 
 

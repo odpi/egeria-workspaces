@@ -14,6 +14,16 @@ from recognizer.layout_profile import compose_profiles, load_profile
 from recognizer.recognize import Recognizer
 
 PROFILES = Path(__file__).resolve().parent.parent / "profiles"
+
+
+def _defined_by():
+    from recognizer.layout_profile import load_profile as _lp
+    p = _lp("code-repo-conventions", Path(__file__).resolve().parent.parent / "profiles")
+    return {r.id: r.origin for r in (*p.rules, *p.file_roles)} | {getattr(p.manifest_reading, k).id: getattr(p.manifest_reading, k).origin
+                                                                  for k in ("member_rule", "aggregator_rule", "included_build_rule") if getattr(p.manifest_reading, k)}
+
+
+DEFINED_BY = _defined_by()                       # rule id -> the profile that defines it (Phase 1j J6: finding ids are made from it)
 RECOGNIZER = Path(__file__).resolve().parent.parent / "recognizer"
 
 CI_FOLDERS = (".github", ".circleci", ".buildkite", "ci", ".ci", ".teamcity", ".gitlab", ".azure-pipelines", ".azuredevops", ".woodpecker", ".tekton", ".semaphore", ".jenkins")
@@ -112,7 +122,7 @@ def test_finding_ids_of_unaffected_components_do_not_change(tmp_path):
     assert load_profile("code-repo-conventions", PROFILES).major == "0"
     for d in ("core", "lib"):
         rid = r1.f[d]["rule_id"]
-        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"code-repo-conventions@0|{rid}|{d}".encode()).hexdigest()[:16]
+        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"{DEFINED_BY[rid]}@0|{rid}|{d}".encode()).hexdigest()[:16]     # Phase 1j J6: the profile that defines the rule
 
 
 # ---- ONE closed list: R-tool-package's CI alternation and the F-ci folder globs name exactly the same folders
@@ -120,14 +130,15 @@ def test_the_ci_folder_list_is_one_closed_list_in_both_places():
     p = load_profile("code-repo-conventions", PROFILES)
     by = {r.id: r for r in (*p.rules, *p.file_roles)}
     tool, fci = by["R-tool-package"], by["F-ci"]
-    assert p.version == "0.9.0"
-    (rx,) = tool.segment_res
+    assert p.version == "0.11.0"
+    rx, scripts_rx = tool.segment_res                    # Phase 1j J3: the scripts segments are their own regex, present while scripts-are-tooling is on
     alts = re.findall(r"\^\(\?:([^)]*)\)\$", rx.pattern)
     assert len(alts) == 2
     tooling_words = alts[0].split("|")
     ci_words = [w.replace("\\.", ".") for w in alts[1].split("|")]
     assert tuple(ci_words) == CI_FOLDERS
-    assert tooling_words == ["tools", "tooling", "devtools", "dev-tools", "build-tools", "buildsrc", "_ext", "scripts", "script"]     # Phase 1h H1 adds script (and the scripts?[-_] prefix form)
+    assert tooling_words == ["tools", "tooling", "devtools", "dev-tools", "build-tools", "buildsrc", "_ext"]
+    assert scripts_rx.pattern == "(?i)^(?:scripts|script)$|^scripts?[-_]"        # Phase 1h H1 (script and the scripts?[-_] prefix form)
     globs = list(fci.match["path_glob"])
     assert globs == [g for x in CI_FOLDERS for g in ((f"{x}/**",) if x == "ci" else (f"{x}/**", f"**/{x}/**"))] + [".gitlab-ci.yml", "Jenkinsfile"]
     for x in CI_FOLDERS:
@@ -252,7 +263,7 @@ def test_g2_leaves_finding_ids_of_unaffected_components_unchanged(tmp_path):
     assert "doc" not in r2.f
     for d in ("core", "lib", "docs"):
         rid = r1.f[d]["rule_id"]
-        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"code-repo-conventions@0|{rid}|{d}".encode()).hexdigest()[:16]
+        assert r1.f[d]["finding_id"] == r2.f[d]["finding_id"] == hashlib.sha256(f"{DEFINED_BY[rid]}@0|{rid}|{d}".encode()).hexdigest()[:16]     # Phase 1j J6: the profile that defines the rule
 
 
 # ---- names only: the same answer with no blob source (nothing can be opened)
@@ -275,7 +286,7 @@ def test_g2_reads_names_only(tmp_path):
 def test_both_docs_rules_share_the_lists_and_state_the_judgement():
     a = {r.id: r for r in load_profile("code-repo-conventions", PROFILES).rules}["R-conv-docs"]
     b = {r.id: r for r in load_profile("docs-site", PROFILES).rules}["R-docs-folder-top-level"]
-    assert load_profile("docs-site", PROFILES).version == "0.5.0" and load_profile("code-repo-conventions", PROFILES).version == "0.9.0"
+    assert load_profile("docs-site", PROFILES).version == "0.5.0" and load_profile("code-repo-conventions", PROFILES).version == "0.11.0"
     for r in (a, b):
         assert r.content_min == 2 and r.content_exts == (".md", ".mdx", ".rst", ".adoc", ".asciidoc", ".txt", ".ipynb")
         assert r.content_files == frozenset({"mkdocs.yml", "mkdocs.yaml", "docusaurus.config.js", "docusaurus.config.ts", "docusaurus.config.mjs", "docusaurus.config.cjs", "conf.py",
