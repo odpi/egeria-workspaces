@@ -77,7 +77,7 @@ def test_unclassified_is_zero_other_is_reported_and_components_are_unchanged(tmp
     doc = yaml.safe_load((PROFILES / "docs-site.yaml").read_text())
     doc.pop("file_roles")
     from recognizer.layout_profile import parse_profile
-    Recognizer(parse_profile(doc, "no-roles", PROFILES)).run(tmp_path / "out.tsv", tmp_path / "plain")
+    Recognizer(parse_profile(doc, "no-roles", PROFILES, _shipped=True)).run(tmp_path / "out.tsv", tmp_path / "plain")
     for n in ("components.txt", "components-all.txt"):
         assert (out / n).read_bytes() == (tmp_path / "plain" / n).read_bytes(), n
 
