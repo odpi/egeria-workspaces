@@ -721,6 +721,19 @@ tree have 0 new and 0 resolved and byte-identical outputs; clean to mutated give
 `resolved` = the same set, with the same ids. Where the survey has `by_category`, `conformance.json` carries it and the report section gives the
 score per category.
 
+## Phase 2, notebook 05, B4: the notebook (`coco-workbooks/7. layout-semantics/05 conformance-and-drift.ipynb`)
+
+The Coco pattern, local only (decision 4(a)): generate a clean tree (seed 1, 6 subjects, 2 sessions), survey it (100% conformant; 0 findings),
+inject `samples/specs/drift-a.yaml`, survey again (95% conformant; 13 findings; BIDS and study consistency scored apart), report drift (13 new since
+last survey), answer the UC6 questions from the stored `conformance.json` and `drift.json`, check the answer against `truth.jsonl` (equal), fix the tree
+back (13 resolved, same ids), and survey the ds000117 file list (reported, not scored). The Resource Explorer, Portal and Egeria cells are marked
+"Phase 3 — not run" and do nothing. "Over the allowed count" is answered "not checked in v0": the profile has no count rules.
+
+`tests/test_notebook05.py` runs the notebook's code cells top to bottom in a fresh interpreter with the network blocked (well under 2 minutes), and
+checks that the outputs are cleared, that no absolute or local path is in it, that it imports only the standard library, PyYAML and this folder's
+code, and that the Phase 3 cells are marked. It works from the notebook's own folder in a checkout; the work folder is a temporary folder, removed
+at the end.
+
 ## Decisions made so far (for review)
 
 1. `vendored` (installed packages) and `generated` (build output, tool caches) are separate roles; both are hidden. `.cache` is `generated`.
