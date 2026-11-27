@@ -4,7 +4,17 @@ Copyright Contributors to the ODPi Egeria project.
 
 Shared fixtures for the freshstart PyegeriaWebHandler tests.
 """
+import sys
+from pathlib import Path
+
 import pytest
+
+# The handler modules sit one folder up. Put that folder on sys.path when this conftest loads, before any
+# test module is collected, so a module-level import (e.g. `import mcp_server`) works under plain `pytest`
+# as well as `python -m pytest`. The quickstart conftest does the same.
+_MODULE_DIR = str(Path(__file__).resolve().parents[1])
+if _MODULE_DIR not in sys.path:
+    sys.path.insert(0, _MODULE_DIR)
 
 
 @pytest.fixture(autouse=True)

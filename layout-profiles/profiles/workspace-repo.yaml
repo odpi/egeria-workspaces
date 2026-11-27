@@ -1,0 +1,60 @@
+# workspace-repo: a repository whose parts are deployments, notebooks, templates and documents rather than packages (a workspace of compose files, workbooks, design notes).
+# It extends code-repo-conventions and docs-site (listed in that order: the code profile wins a conflict) and adds four STRUCTURAL rules, by file kinds and names, never by a
+# repository's folder names. They run after every other claim, so a manifest or convention claim always wins, and none claims a directory that is hidden, inside a claimed
+# component (the repository root does not count) or, for the first two, a fixture, sample or tooling path.
+# Tuned on the dogfood answer key of the workspaces repository itself (fact-rich: the builder knows this repository), so its score is a FIT, not a result.
+profile_id: workspace-repo
+version: 0.1.0
+status: proposed
+applies_to: workspace-of-repos
+extends: [code-repo-conventions, docs-site]
+roles: [component]
+relevance:
+  primary: [component]
+  supporting: []
+  hidden: []
+rules: []
+manifest_reading:
+  readers: [compose-services]            # YAML files are read for a top-level `services:` key, under the same caps and safe loader as every manifest
+structural_rules:
+  - id: S-compose-deployment
+    op: compose-deployment
+    min: 1
+    kind: deployment
+    name_regex: ['(?i)^compose\.ya?ml$', '(?i)^docker-compose[^/]*\.ya?ml$', '(?i)^[^/]*-compose\.ya?ml$']
+    yaml_key: services
+    basis: convention
+    confidence: medium
+    evidence: "a directory that holds a compose file (compose.yml, docker-compose*.yml, *-compose.yml, or a YAML file whose top-level key is services) is a deployment; the unit is the child of the nearest grouping folder (a folder with two or more deployments below it), otherwise the outermost compose directory"
+    tuned_on: ["egeria-workspaces dogfood key (fact-rich)"]
+  - id: S-notebooks
+    op: notebook-folder
+    min: 3
+    kind: notebooks
+    basis: convention
+    confidence: medium
+    evidence: "the shallowest directory with three or more Jupyter notebooks below it, or holding an Obsidian vault (.obsidian), is a collection of notebooks"
+    tuned_on: ["egeria-workspaces dogfood key (fact-rich)"]
+  - id: S-mostly-docs
+    op: mostly-extension-folder
+    min: 3
+    share: 0.8
+    extensions: [.md]
+    kind: documentation
+    basis: convention
+    confidence: low
+    evidence: "a top-level directory of at least three files, at least 80% of them Markdown by count, is documentation"
+    tuned_on: ["egeria-workspaces dogfood key (fact-rich)"]
+  - id: S-mostly-data
+    op: mostly-extension-folder
+    min: 3
+    share: 0.8
+    extensions: [.csv, .json, .jsonl, .parquet, .yaml]
+    no_code: true
+    kind: sample-data
+    basis: convention
+    confidence: low
+    evidence: "a top-level directory of at least three files, at least 80% of them data files (csv, json, jsonl, parquet, yaml) and none of them code, is sample data"
+    tuned_on: ["egeria-workspaces dogfood key (fact-rich)"]
+path_grammar: []
+name_grammar: []

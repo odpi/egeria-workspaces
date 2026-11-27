@@ -1,0 +1,23 @@
+# Sources
+
+Nothing here is copied from a repository: profiles are written from conventions, tests use hand-written synthetic path lists.
+
+- Build brief and Phase 0 corpus (answer keys, scorer, census notes): kept outside this repository.
+- Rule set of `profiles/generic-relevance.yaml`, and the egeria-v6 expected counts (`tests/census_egeria_v6.json`): the Phase 0 census
+  (a path-rule classification of a large unversioned egeria-v6 tree, 2026-11-26), kept outside this repository.
+- Path lists (names and sizes only; not in the repository):
+  - egeria-v6: a path list produced by `recognizer/listpaths.py` over an egeria-v6 working tree (not git), 2,612,019 files; no file was opened.
+  - tune set, by `recognizer/gitlist.py` (`git ls-tree -r -l` of one commit): trellis `142bd786`, datahub `bc0c3ef7ef2`, superset `d2cce51dd`.
+- Answer keys: not used in M0. Only the header lines (repo, commit, path) of the three tune-set keys were read to find the commits.
+  The two held-out answer keys (airbyte, egeria-docs) were not opened, and those repositories were not run.
+- M1: the three tune-set answer keys (trellis, datahub, superset; draft labels, unreviewed) were used only through the Phase 0 scorer, for the manifest-probe
+  regression; none was copied or edited, and the scores are provisional until the keys are reviewed.
+- M5 (Phase 1b): no new answer key was used beyond the three tune-set keys (through the scorer, to confirm the component scores did not move). The egeria-v6 stratified sample (a 89-directory sheet) motivated the four hidden rules; it is spent. The held-out repositories of Phase 1b were not listed, opened or run.
+- M6 (Phase 1b): the recognizer read manifests of the three tune-set repositories at the same commits as the path lists (package.json, lerna.json and the like; at most 37 per repository, at most 56 KB); tests use synthetic manifests only. No manifest was copied into the repository.
+- M7 (Phase 1b): the five `mkdocs.yml` files of the mkdocs tutorial sample (a public tutorial tree used for tuning, 914 bytes in all) were read for their nav; tests use synthetic nav files only.
+- M7 follow-up: the Docusaurus rule uses the config file NAME only, from the manifest-reading scope note; no Docusaurus repository was looked at and no config was read.
+- M5b (Phase 1b): the egeria-v6 list is used by names and sizes only, as before; `.gitmodules` is read only by the recognizer in tests (synthetic files) and where a blob source is given; the three new rules come from the egeria-v6 re-check sample, which is now spent.
+- M5c (Phase 1b): the egeria-v6 list by names and sizes only; the layout lists and the runtime-volumes rule are the owner's rulings after the third draw, which is now spent.
+- N6 (Phase 1c): the workspaces repository at commit 6b040618 and egeria-python at 98837e05 (the dogfood trees; not held out, and known to the builder) were listed by names and sizes and their compose YAML read from the git object database; their answer keys were used only through the scorer, as a fit.
+- Phase 1d (D5): the kafka repository at commit c4cddf09 (a spent held-out repository) was listed by names and sizes and its Gradle settings read through the git object database, only to re-score the rules as a fit against its key (b1bdaf54).
+- Phase 1e (E2): the spring-boot repository at commit f580d002 (spent after D6; its path list and key a1aaf8a9 were used to re-score the E1 rule as a fit), kafka (c4cddf09, spent, key b1bdaf54), and the tune set and dogfood trees as before, by names and sizes with manifests read from the git object database; no held-out tree or key was opened.
