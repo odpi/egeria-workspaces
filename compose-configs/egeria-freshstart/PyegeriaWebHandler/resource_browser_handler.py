@@ -24,7 +24,7 @@ Endpoints:
   GET    /api/resource-browser/search?q=&kind=&page=         → L0 search: text, columns, tags, keywords, owners
   GET    /api/resource-browser/flavours                      → which resources are product or hub members (cached)
   GET    /api/resource-browser/row-extras?guids=             → tags, likes and rating summary for visible rows
-  GET    /api/resource-browser/home                          → recently changed resources; popularity status
+  GET    /api/resource-browser/home                          → recently changed resources; popular ones (DataScope reads/day)
   GET    /api/resource-browser/lists                         → work lists the user can see, and which hold what
   GET    /api/resource-browser/lists/{guid}                  → one list, every member with its rationale
   POST   /api/resource-browser/lists                         → create a list of your own
@@ -225,6 +225,58 @@ def _data_scope(classifications: list) -> Optional[dict]:
         if c["name"] == "DataScope":
             return c["properties"]
     return None
+
+
+# Usage readings that Egeria's open-lineage data-scope governance service keeps in the additionalProperties
+# of a resource's DataScope classification (PO-27). The P0 check (the quickstart, 2026-11-27, pyegeria
+# 6.3.4) read every value as a string: counts and rates as decimal text, times as ISO-8601 UTC.
+_USAGE_COUNTS = ("readCount", "readsInWindow", "readersInWindow")
+_USAGE_RATES = ("readsPerDay",)
+_USAGE_TEXTS = ("lastReadAt", "lastReadInWindow", "analysisWindowStart", "analysisWindowEnd", "analysisTime",
+                "analysisService")
+
+
+def _usage_number(value, count: bool):
+    """A reading as a number (an int for a count), or None when it is missing or unreadable: never 0."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        n = float(value if isinstance(value, (int, float)) else str(value).strip())
+    except ValueError:
+        return None
+    if n != n or n in (float("inf"), float("-inf")):
+        return None
+    return int(n) if count and n.is_integer() else n
+
+
+def _usage(element: dict) -> Optional[dict]:
+    """The usage readings on an element's DataScope, numbers parsed, or None when it has none.
+
+    The DataScope is read where Egeria puts it: at elementHeader.dataScope (all 126 on the quickstart, P0) or as
+    an entry of elementHeader.classifications. Only the usage keys are returned; a DataScope with no
+    usage key (or no DataScope) is None, "not measured", never zeros."""
+    hdr = (element or {}).get("elementHeader") or {}
+    candidates = [hdr.get("dataScope")] + list(hdr.get("classifications") or [])
+    readings = None
+    for c in candidates:
+        if not isinstance(c, dict):
+            continue
+        name = c.get("classificationName") or (c.get("type") or {}).get("typeName")
+        if name == "DataScope" or (c is hdr.get("dataScope") and c.get("class") == "ElementClassification"):
+            readings = (c.get("classificationProperties") or {}).get("additionalProperties")
+            break
+    if not isinstance(readings, dict):
+        return None
+    out = {}
+    for k in _USAGE_COUNTS + _USAGE_RATES:
+        n = _usage_number(readings.get(k), k in _USAGE_COUNTS)
+        if n is not None:
+            out[k] = n
+    for k in _USAGE_TEXTS:
+        v = readings.get(k)
+        if isinstance(v, str) and v.strip():
+            out[k] = v.strip()
+    return out or None
 
 
 def _flavour(type_name: str, super_types: list, collections: list) -> dict:
@@ -1382,9 +1434,8 @@ _RECENT_PAGE = 50
 _RECENT_SHOWN = 25
 _CACHE_TTL = 600             # seconds; the page shows the age
 
-_ORDER_NOTE = ("Ordered by text relevance: name matches first, then qualified name, description, "
-               "tag, keyword, owner and column matches. Egeria holds no usage measure yet, "
-               "so nothing is ranked by use.")
+# Search order is text relevance only (PO-27): ranking search by use is a separate decision.
+_ORDER_NOTE = "Ordered by text relevance. Usage is shown, not used for ordering."
 
 
 def _kind_of(type_name: str, super_types: list) -> str:
@@ -1432,6 +1483,12 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         return None
     versions = hdr.get("versions") or {}
     desc = props.get("description") or ""
+    # Whether the element came with its classifications read (PO-27F F3b), so that no usage means "not
+    # measured" rather than "not read". Every resource carries at least Anchors, so a header with no
+    # ElementClassification entry was read without them. The same test as the quickstart's
+    # _classifications_read, kept inline.
+    usage_read = any(isinstance(v, dict) and v.get("class") == "ElementClassification"
+                     for val in hdr.values() for v in (val if isinstance(val, list) else [val]))
     return {
         "guid": guid,
         "typeName": type_name,
@@ -1442,6 +1499,8 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         "owner": _owner(cls),
         "badges": [c["name"] for c in cls if c["name"] in _BADGES],
         "dataScope": _data_scope(cls),
+        "usage": _usage(el),
+        "usageRead": usage_read,
         "updatedBy": versions.get("updatedBy") or versions.get("createdBy") or "",
         "updateTime": versions.get("updateTime") or versions.get("createTime") or "",
         "automated": _looks_automated(versions.get("updatedBy") or versions.get("createdBy")),
@@ -1882,11 +1941,94 @@ def _recent_rows(batches: list) -> list:
     return sorted(seen.values(), key=lambda r: r["updateTime"], reverse=True)
 
 
-@router.get("/api/resource-browser/home", summary="Recently changed resources, and whether popularity is available")
+# Popular (PO-27; Dan, 2026-11-27): resources ranked by the reads per day that Egeria's open-lineage
+# data-scope governance service records on their DataScope. Honest-data rules (design-docs/
+# popularity-and-usage-measures.md §5): a resource without readings is "not measured", never 0 and never
+# ranked; a measured 0 stays 0; no readings anywhere and a failed read are different answers.
+_POPULAR_SHOWN = 10
+_POPULAR_NONE = "Popularity not available yet: no usage readings on this platform"
+_POPULAR_FAILED = ("Popularity could not be read: the read of usage readings from Egeria failed. "
+                   "This says nothing about whether resources are used.")
+_POPULAR_SOURCE = ("ClassificationExplorer.get_elements_by_classification (DataScope): usage readings in "
+                   "additionalProperties, kept by Egeria's open-lineage data-scope governance service")
+
+
+def _iso_time(text) -> Optional[datetime]:
+    """An ISO-8601 time (Egeria writes ...Z), or None when it cannot be read."""
+    if not isinstance(text, str) or not text.strip():
+        return None
+    try:
+        d = datetime.fromisoformat(text.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
+def _popular(elements: list, capped: bool = False) -> dict:
+    """The Popular tile from the elements that carry a DataScope.
+
+    Ranked: those with readsPerDay, by readsPerDay descending, ties by readCount (else readsInWindow),
+    then display name; every one is kept and the first _POPULAR_SHOWN are shown. Measured but without a
+    readsPerDay reading: listed apart (unranked), never ranked as 0. No readings: counted as not measured.
+    asOf is the latest analysisWindowEnd, and window is that reading's window; both None when no reading
+    records one."""
+    seen, ranked, unranked, not_measured = set(), [], [], 0
+    for e in elements or []:
+        hdr = (e or {}).get("elementHeader") or {}
+        guid = hdr.get("guid")
+        if not guid or guid in seen or any(c["name"] == "Template" for c in _classifications(hdr)):
+            continue
+        seen.add(guid)
+        usage = _usage(e)
+        if usage is None:
+            not_measured += 1
+            continue
+        props = e.get("properties") or {}
+        rec = {"guid": guid, "typeName": _type_names(hdr)[0], "displayName": _display_name(props, guid),
+               "qualifiedName": props.get("qualifiedName", ""), "usage": usage,
+               "lastRead": usage.get("lastReadAt") or usage.get("lastReadInWindow")}
+        (ranked if "readsPerDay" in usage else unranked).append(rec)
+    base = {"measure": "readsPerDay", "capped": capped, "notMeasured": not_measured, "source": _POPULAR_SOURCE}
+    if not ranked and not unranked:
+        return {"available": False, "reason": _POPULAR_NONE, **base}
+
+    def tie(u):
+        n = u.get("readCount", u.get("readsInWindow"))
+        return -n if n is not None else float("inf")
+    ranked.sort(key=lambda r: (-r["usage"]["readsPerDay"], tie(r["usage"]), r["displayName"].lower()))
+    unranked.sort(key=lambda r: (tie(r["usage"]), r["displayName"].lower()))
+    latest = None
+    for r in ranked + unranked:
+        end = _iso_time(r["usage"].get("analysisWindowEnd"))
+        if end and (latest is None or end > latest[0]):
+            latest = (end, r["usage"])
+    return {"available": True, "ranking": ranked, "unranked": unranked, "shown": _POPULAR_SHOWN,
+            "measured": len(ranked) + len(unranked),
+            "asOf": latest[1]["analysisWindowEnd"] if latest else None,
+            "window": ({"start": latest[1].get("analysisWindowStart"), "end": latest[1]["analysisWindowEnd"]}
+                       if latest else None),
+            **base}
+
+
+async def _home_popular(client) -> dict:
+    """The Popular tile, cached per user for _CACHE_TTL. Never raises: a failed read is reported as failed."""
+    async def read():
+        els, capped = await _classified(client, "DataScope")
+        return _popular(els, capped)
+    try:
+        value, stamp = await _cached("popular", read)
+    except Exception as exc:
+        logger.warning(f"resource-browser: popularity read failed: {type(exc).__name__}")
+        return {"available": False, "failed": True, "reason": _POPULAR_FAILED, "source": _POPULAR_SOURCE}
+    return {**value, "readAt": stamp.isoformat(timespec="seconds")}
+
+
+@router.get("/api/resource-browser/home", summary="Recently changed resources, and the most used ones")
 async def home():
     try:
         client = await _explorer_async()
-        batches = await asyncio.gather(*(_recent(client, t) for t in _RESOURCE_TYPES))
+        batches, popular = await asyncio.gather(
+            asyncio.gather(*(_recent(client, t) for t in _RESOURCE_TYPES)), _home_popular(client))
     except Exception as exc:
         raise_egeria_http_error(exc, "resource-browser: recently changed failed")
     rows = _recent_rows(batches)
@@ -1894,11 +2036,10 @@ async def home():
         "recent": rows[:_RECENT_SHOWN],
         "recentPeople": [r for r in rows if not r["automated"]][:_RECENT_SHOWN],
         "recentWindow": {"perType": _RECENT_PAGE, "types": _RESOURCE_TYPES},
-        "popular": {"available": False,
-                    "reason": "Popularity is not available yet: Egeria holds no usage measure for these resources."},
+        "popular": popular,
         "me": _token_user(),
         "asOf": _now_iso(),
-        "source": "ClassificationExplorer.get_elements (sequencingOrder LAST_UPDATE_RECENT)",
+        "source": "ClassificationExplorer.get_elements (sequencingOrder LAST_UPDATE_RECENT); " + _POPULAR_SOURCE,
     })
 
 
