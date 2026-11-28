@@ -125,12 +125,13 @@ def test_home_shows_the_popular_tile_with_the_as_of_and_the_shown_fields():
 
 @needs_node
 def test_a_row_whose_classifications_were_not_read_says_usage_not_read():
-    """PO-27 FIX-1: muted "usage not read", neither silent nor "not measured"."""
+    """PO-27 FIX-1, fed on freshstart by the row's usageRead (F3b): muted "usage not read", neither silent
+    nor "not measured"."""
     d = _run(r"""
 console.log(JSON.stringify({
-  notRead: rowUsageChip({ usage: null, scopeRead: false }),
-  notReadEvenWithUsage: rowUsageChip({ usage: { readsPerDay: 2 }, scopeRead: false }),
-  notMeasured: rowUsageChip({ usage: null, scopeRead: true }),
+  notRead: rowUsageChip({ usage: null, usageRead: false }),
+  notReadEvenWithUsage: rowUsageChip({ usage: { readsPerDay: 2 }, usageRead: false }),
+  notMeasured: rowUsageChip({ usage: null, usageRead: true }),
   measured: rowUsageChip({ usage: { readsPerDay: 2 } }),
   notFromRow: rowUsageChip({ guid: 'x' }) }));""")
     assert d["notRead"]["text"] == "usage not read" and d["notRead"]["absent"] is True
@@ -162,9 +163,13 @@ def test_the_page_helpers_match_the_quickstart_copy():
     if not qs_path.exists():
         pytest.skip(f"{qs_path} not present")
     qs = qs_path.read_text()
-    for name in _NAMES + ("UsageChip",):
+    # rowUsageChip differs by design (F3b): freshstart reads the row's usageRead, the quickstart its scopeRead.
+    for name in tuple(n for n in _NAMES if n != "rowUsageChip") + ("UsageChip",):
         start = qs.index(f"function {name}(")
         assert _fn(name) == qs[start:qs.index("\n}\n", start) + 3], name
+    start = qs.index("function rowUsageChip(")
+    qs_row = qs[start:qs.index("\n}\n", start) + 3]
+    assert _fn("rowUsageChip") == qs_row.replace("row.scopeRead === false", "row.usageRead === false")
 
 
 # ── F3: chips on rows ─────────────────────────────────────────────────────────
@@ -183,3 +188,23 @@ def test_scope_chips_are_unchanged():
 
 def test_the_page_no_longer_says_egeria_holds_no_usage_measure():
     assert "Egeria holds no usage measure" not in _PAGE
+
+
+@needs_node
+def test_usage_read_true_or_absent_never_says_not_read():
+    """F3b: only usageRead false says "usage not read"; true (or a row without the field) shows the readings."""
+    d = _run(r"""
+console.log(JSON.stringify({
+  readMeasured: rowUsageChip({ usage: { readsPerDay: 0 }, usageRead: true }),
+  readNone: rowUsageChip({ usage: null, usageRead: true }),
+  absent: rowUsageChip({ usage: null }),
+  scopeReadIgnored: rowUsageChip({ usage: null, usageRead: true, scopeRead: false }) }));""")
+    assert d["readMeasured"]["text"] == "0 reads/day (measured)"
+    assert d["readNone"]["text"] == "not measured"
+    assert d["absent"]["text"] == "not measured"
+    assert d["scopeReadIgnored"]["text"] == "not measured"
+
+
+def test_row_usage_chip_reads_usage_read():
+    fn = _fn("rowUsageChip")
+    assert "row.usageRead === false" in fn and "scopeRead" not in fn

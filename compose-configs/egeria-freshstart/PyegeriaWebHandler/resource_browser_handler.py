@@ -1483,6 +1483,12 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         return None
     versions = hdr.get("versions") or {}
     desc = props.get("description") or ""
+    # Whether the element came with its classifications read (PO-27F F3b), so that no usage means "not
+    # measured" rather than "not read". Every resource carries at least Anchors, so a header with no
+    # ElementClassification entry was read without them. The same test as the quickstart's
+    # _classifications_read, kept inline.
+    usage_read = any(isinstance(v, dict) and v.get("class") == "ElementClassification"
+                     for val in hdr.values() for v in (val if isinstance(val, list) else [val]))
     return {
         "guid": guid,
         "typeName": type_name,
@@ -1494,6 +1500,7 @@ def _row(el: dict, any_type: bool = False) -> Optional[dict]:
         "badges": [c["name"] for c in cls if c["name"] in _BADGES],
         "dataScope": _data_scope(cls),
         "usage": _usage(el),
+        "usageRead": usage_read,
         "updatedBy": versions.get("updatedBy") or versions.get("createdBy") or "",
         "updateTime": versions.get("updateTime") or versions.get("createTime") or "",
         "automated": _looks_automated(versions.get("updatedBy") or versions.get("createdBy")),

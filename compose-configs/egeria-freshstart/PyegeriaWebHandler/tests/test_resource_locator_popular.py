@@ -343,12 +343,13 @@ def test_rows_carry_usage_from_the_data_scope():
     assert "usage" in none                                     # every row carries the key
 
 
-def test_the_row_gains_only_the_usage_field():
-    """F3: freshstart's row shape is otherwise unchanged (no hasScope or scopeRead added)."""
+def test_the_row_gains_only_the_usage_fields():
+    """F3 and F3b: freshstart's row gains `usage` and `usageRead` only (no hasScope or scopeRead added)."""
     import resource_browser_handler as mod
     r = mod._row(_resource("a", "orders", {"readsPerDay": "1"}))
     assert set(r) == {"guid", "typeName", "kind", "displayName", "qualifiedName", "description", "owner", "badges",
-                      "dataScope", "usage", "updatedBy", "updateTime", "automated", "matched"}
+                      "dataScope", "usage", "usageRead", "updatedBy", "updateTime", "automated", "matched"}
+    assert "scopeRead" not in r and "hasScope" not in r
 
 
 def test_search_order_is_unchanged_by_usage():
@@ -371,3 +372,55 @@ def test_order_note_says_usage_is_shown_not_used():
     import resource_browser_handler as mod
     assert mod._ORDER_NOTE == "Ordered by text relevance. Usage is shown, not used for ordering."
     assert "no usage measure" not in _HANDLER.read_text()
+
+
+# ── F3b: usageRead says whether the row's classifications were read ──────────
+
+def _unread(guid, name):
+    """A resource as a source returns it without classifications: the header carries no ElementClassification."""
+    e = _resource(guid, name)
+    assert not any(isinstance(v, dict) and v.get("class") == "ElementClassification"
+                   for v in e["elementHeader"].values())
+    return e
+
+
+def _anchored(guid, name, readings=..., form="header"):
+    """A resource read with its classifications: Anchors (every resource has it) and, optionally, a DataScope."""
+    e = _resource(guid, name, readings)
+    if readings is not ... and form == "list":
+        e["elementHeader"]["classifications"] = [e["elementHeader"].pop("dataScope")]
+    e["elementHeader"]["anchor"] = {"class": "ElementClassification", "classificationName": "Anchors",
+                                    "classificationProperties": {"anchorGUID": guid}}
+    return e
+
+
+def test_usage_read_is_true_when_classifications_came_with_the_element():
+    import resource_browser_handler as mod
+    measured = mod._row(_anchored("a", "orders", {"readsPerDay": "2"}))
+    not_measured = mod._row(_anchored("b", "orders_bare"))          # read, and no DataScope: "not measured"
+    in_list = mod._row(_anchored("c", "orders_list", {"readsPerDay": "1"}, form="list"))
+    scope_only = mod._row(_resource("d", "orders_scope", {}))       # the DataScope itself is a classification read
+    assert measured["usageRead"] is True and measured["usage"] == {"readsPerDay": 2.0}
+    assert not_measured["usageRead"] is True and not_measured["usage"] is None
+    assert in_list["usageRead"] is True and in_list["usage"] == {"readsPerDay": 1.0}
+    assert scope_only["usageRead"] is True
+
+
+def test_usage_read_is_false_when_classifications_were_not_read():
+    import resource_browser_handler as mod
+    r = mod._row(_unread("u", "orders_unread"))
+    assert r["usageRead"] is False
+    assert r["usage"] is None          # the page shows "usage not read" for this row, never "not measured"
+    assert mod._row({"elementHeader": {"guid": "v", "type": {"typeName": "RelationalTable",
+                                                             "superTypeNames": ["SchemaAttribute"]},
+                                       "classifications": []},
+                     "properties": {"displayName": "empty list"}})["usageRead"] is False
+
+
+def test_usage_read_does_not_change_the_search_order():
+    import resource_browser_handler as mod
+    rows = [mod._row(_unread("1", "sales orders")), mod._row(_anchored("2", "orders", {"readsPerDay": "0.1"})),
+            mod._row(_anchored("3", "orders archive"))]
+    flipped = [{**r, "usageRead": not r["usageRead"]} for r in rows]
+    assert ([r["guid"] for r in sorted(rows, key=lambda r: mod._relevance(r, "orders"))]
+            == [r["guid"] for r in sorted(flipped, key=lambda r: mod._relevance(r, "orders"))] == ["2", "3", "1"])

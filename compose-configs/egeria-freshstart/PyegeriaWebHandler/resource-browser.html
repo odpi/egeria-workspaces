@@ -1632,11 +1632,11 @@ function usageChip(u) {
 }
 
 // The usage chip for a search or browse row, or null for a record that did not come from the server's _row.
-// A row whose classifications were not read says so, muted, as "scope not read" does (Architect R1, 2026-11-17):
-// neither silent nor "not measured".
+// A row whose classifications were not read (the server's usageRead false) says so, muted: neither silent
+// nor "not measured" (PO-27 FIX-1; freshstart rows carry usageRead, PO-27F F3b).
 function rowUsageChip(row) {
   if (!row || row.usage === undefined) return null;
-  if (row.scopeRead === false) {
+  if (row.usageRead === false) {
     return { text: 'usage not read', absent: true,
       title: 'This list was read without each resource\u2019s classifications, so whether it has usage readings is unknown' };
   }
